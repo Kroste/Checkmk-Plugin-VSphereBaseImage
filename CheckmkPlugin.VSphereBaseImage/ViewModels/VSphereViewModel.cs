@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Runtime.Versioning;
 using Checkmk.PluginContracts.Services;
 using CheckmkPlugin.VSphereBaseImage.Models;
@@ -15,18 +16,18 @@ public sealed partial class VSphereViewModel : ObservableObject
     private static readonly Logger Log = LogManager.GetCurrentClassLogger();
 
     private readonly ICredentialStore _credStore;
-    private readonly IVmFilterStore _filterStore;
     private readonly IBatchSettingsStore _batchSettings;
     private readonly IAgentUpdater _updater;
 
     private List<VmInfo> _allVms = new();
 
-    public ObservableCollection<VmInfo> VisibleVms { get; } = new();
-    public ObservableCollection<VmFilter> Filters { get; } = new();
+    /// <summary>Live-State der Filter — analog Cockpit-HostFilterCollection.
+    /// XAML bindet an <c>Filters.Filters</c> (ItemsSource) und <c>Filters.Active</c>
+    /// (SelectedItem). Aenderungen im FilterManager greifen automatisch, weil die
+    /// Collection Singleton ist.</summary>
+    public VmFilterCollection Filters { get; }
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(BatchButtonLabel))]
-    private VmFilter? _activeFilter;
+    public ObservableCollection<VmInfo> VisibleVms { get; } = new();
 
     [ObservableProperty] private string _statusMessage = "";
     [ObservableProperty] private string _logText = "";
@@ -34,34 +35,30 @@ public sealed partial class VSphereViewModel : ObservableObject
     [ObservableProperty] private VmInfo? _selectedVm;
 
     public string BatchButtonLabel =>
-        ActiveFilter is null
+        Filters.Active is null
             ? $"Batch starten ({VisibleVms.Count} VMs)"
-            : $"Batch starten ({VisibleVms.Count} VMs im Filter „{ActiveFilter.Name}\")";
-
-    partial void OnActiveFilterChanged(VmFilter? value)
-    {
-        ApplyFilter();
-        var state = _filterStore.Load();
-        state.ActiveFilterName = value?.Name;
-        _filterStore.Save(state);
-    }
+            : $"Batch starten ({VisibleVms.Count} VMs im Filter „{Filters.Active.Name}\")";
 
     public VSphereViewModel(
         ICredentialStore credStore,
-        IVmFilterStore filterStore,
-        IBatchSettingsStore pluginSettings,
+        VmFilterCollection filters,
+        IBatchSettingsStore batchSettings,
         IAgentUpdater updater)
     {
         _credStore = credStore;
-        _filterStore = filterStore;
-        _batchSettings = pluginSettings;
+        Filters = filters;
+        _batchSettings = batchSettings;
         _updater = updater;
 
-        var s = _filterStore.Load();
-        foreach (var f in s.Filters) Filters.Add(f);
-        _activeFilter = string.IsNullOrEmpty(s.ActiveFilterName)
-            ? null
-            : Filters.FirstOrDefault(f => f.Name == s.ActiveFilterName);
+        // Auf Filterwechsel und Filter-Bearbeitung reagieren.
+        Filters.PropertyChanged += OnFiltersPropertyChanged;
+        Filters.Filters.CollectionChanged += (_, _) => ApplyFilter();
+    }
+
+    private void OnFiltersPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(VmFilterCollection.Active))
+            ApplyFilter();
     }
 
     [RelayCommand]
@@ -96,7 +93,7 @@ public sealed partial class VSphereViewModel : ObservableObject
     {
         VisibleVms.Clear();
         IEnumerable<VmInfo> q = _allVms;
-        if (ActiveFilter is { } f)
+        if (Filters.Active is { } f)
             q = q.Where(v => f.Matches(v.Name));
         foreach (var v in q) VisibleVms.Add(v);
         OnPropertyChanged(nameof(BatchButtonLabel));

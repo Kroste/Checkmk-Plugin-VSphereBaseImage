@@ -1,0 +1,67 @@
+<ui:ChromeWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="using:CheckmkPlugin.VSphereBaseImage.UI"
+        xmlns:vm="using:CheckmkPlugin.VSphereBaseImage.ViewModels"
+        x:Class="CheckmkPlugin.VSphereBaseImage.Views.FilterManagerWindow"
+        x:DataType="vm:FilterManagerViewModel"
+        Width="720" Height="480"
+        Title="VM-Filter verwalten"
+        WindowStartupLocation="CenterOwner">
+
+  <Border BorderBrush="#3A3A3A" BorderThickness="1"
+          Background="{DynamicResource KrosteBackgroundBrush}">
+    <Grid RowDefinitions="40,*,Auto">
+
+      <ui:TitleBar Grid.Row="0" Title="VM-Filter verwalten" />
+
+      <Grid Grid.Row="1" ColumnDefinitions="220,*" Margin="12" ColumnSpacing="12">
+
+        <!-- Filter-Liste links -->
+        <Grid Grid.Column="0" RowDefinitions="*,Auto" RowSpacing="6">
+          <ListBox Grid.Row="0" ItemsSource="{Binding Filters}"
+                   SelectedItem="{Binding Selected}"
+                   DisplayMemberBinding="{Binding Name}" />
+          <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6">
+            <Button Content="Neu" Command="{Binding NewCommand}" />
+            <Button Content="Löschen" Command="{Binding DeleteCommand}"
+                    IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}" />
+          </StackPanel>
+        </Grid>
+
+        <!-- Editor rechts -->
+        <StackPanel Grid.Column="1" Spacing="10"
+                    IsEnabled="{Binding Selected, Converter={x:Static ObjectConverters.IsNotNull}}">
+          <StackPanel Spacing="3">
+            <TextBlock Text="Name" Foreground="#AAAAAA" FontSize="12" />
+            <TextBox Text="{Binding EditName}" PlaceholderText="z. B. Baseimages Windows 2022" />
+          </StackPanel>
+          <StackPanel Spacing="3">
+            <TextBlock Text="VM-Name-Regex (case-insensitive, leer = Regel inaktiv)"
+                       Foreground="#AAAAAA" FontSize="12" />
+            <TextBox Text="{Binding EditRegex}" PlaceholderText="^CTX\d+.*00$" />
+            <TextBlock Text="{Binding ValidationMessage}" Foreground="#EF5350" FontSize="12"
+                       TextWrapping="Wrap"
+                       IsVisible="{Binding ValidationMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </StackPanel>
+          <StackPanel Spacing="3">
+            <TextBlock Text="Explizite VM-Namen (eine je Zeile — wenn gesetzt, überschreibt das Regex)"
+                       Foreground="#AAAAAA" FontSize="12" TextWrapping="Wrap" />
+            <TextBox Text="{Binding EditIncludeNames}"
+                     AcceptsReturn="True" Height="140" TextWrapping="NoWrap"
+                     FontFamily="Consolas,Courier New,monospace" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Button Content="Übernehmen" Command="{Binding ApplyCommand}" Background="#123E6B" />
+            <Button Content="Aktivieren" Command="{Binding ActivateSelectedCommand}" />
+            <Button Content="Filter deaktivieren" Command="{Binding ClearActiveCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Grid>
+
+      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"
+                  Margin="16" Spacing="8">
+        <Button Content="Schließen" Click="OnDismissClick" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</ui:ChromeWindow>

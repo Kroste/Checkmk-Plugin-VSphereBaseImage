@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Runtime.Versioning;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -13,19 +12,19 @@ public partial class VSphereView : UserControl
 {
     private readonly ICredentialStore? _credStore;
     private readonly IBatchSettingsStore? _batchSettings;
-    private readonly IVmFilterStore? _filterStore;
+    private readonly VmFilterCollection? _filters;
 
     public VSphereView(
         VSphereViewModel vm,
         ICredentialStore credStore,
         IBatchSettingsStore batchSettings,
-        IVmFilterStore filterStore)
+        VmFilterCollection filters)
     {
         AvaloniaXamlLoader.Load(this);
         DataContext = vm;
         _credStore = credStore;
         _batchSettings = batchSettings;
-        _filterStore = filterStore;
+        _filters = filters;
     }
 
     public VSphereView() => AvaloniaXamlLoader.Load(this);
@@ -46,19 +45,11 @@ public partial class VSphereView : UserControl
         await dlg.ShowDialog(owner);
     }
 
-    private void OnManageFiltersClick(object? sender, RoutedEventArgs e)
+    private async void OnManageFiltersClick(object? sender, RoutedEventArgs e)
     {
-        // MVP: filter.json im OS-Editor oeffnen. Ein richtiger Filter-Manager
-        // wie im Cockpit kommt in einer spaeteren Version.
-        if (_filterStore is null) return;
-        try
-        {
-            var path = _filterStore.FilePath;
-            if (!File.Exists(path))
-                _filterStore.Save(new Models.VmFilterState());
-            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
-        }
-        catch { /* User kann's manuell im Explorer aufmachen */ }
+        if (_filters is null) return;
+        if (TopLevel.GetTopLevel(this) is not Window owner) return;
+        await new FilterManagerWindow(_filters).ShowDialog(owner);
     }
 
     private async void OnBatchClick(object? sender, RoutedEventArgs e)

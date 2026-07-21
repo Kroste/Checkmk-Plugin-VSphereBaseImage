@@ -29,8 +29,8 @@ public sealed class VSphereTabContribution : ITabContribution
             var vm = _services.GetRequiredService<VSphereViewModel>();
             var credStore = _services.GetRequiredService<ICredentialStore>();
             var batchSettings = _services.GetRequiredService<IBatchSettingsStore>();
-            var filterStore = _services.GetRequiredService<IVmFilterStore>();
-            return new VSphereView(vm, credStore, batchSettings, filterStore);
+            var filters = _services.GetRequiredService<VmFilterCollection>();
+            return new VSphereView(vm, credStore, batchSettings, filters);
         }
         catch (Exception ex)
         {
