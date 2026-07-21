@@ -1,41 +1,39 @@
 using System.Runtime.Versioning;
 using Checkmk.PluginContracts;
-using Checkmk.PluginContracts.Services;
 using CheckmkPlugin.VSphereBaseImage.Services;
 using CheckmkPlugin.VSphereBaseImage.ViewModels;
 using CheckmkPlugin.VSphereBaseImage.Views;
-using Microsoft.Extensions.DependencyInjection;
-using NLog;
 
 namespace CheckmkPlugin.VSphereBaseImage.Contributions;
 
-/// <summary>Blendet den "vSphere Baseimages"-Tab neben Status/Hosts/Dashboard ein.</summary>
+/// <summary>
+/// Blendet den "vSphere Baseimages"-Tab neben Status/Hosts/Dashboard ein.
+/// Ctor-Dependencies werden vom DI-Container direkt aufgeloest — kein Umweg
+/// ueber <see cref="IPluginContext"/> (der ist nur ein Register-Callback-Argument,
+/// nicht im DI registriert und wuerde die Aufloesung crashen).
+/// </summary>
 [SupportedOSPlatform("windows")]
 public sealed class VSphereTabContribution : ITabContribution
 {
-    private static readonly Logger Log = LogManager.GetCurrentClassLogger();
+    private readonly VSphereViewModel _vm;
+    private readonly ICredentialStore _credStore;
+    private readonly IBatchSettingsStore _batchSettings;
+    private readonly VmFilterCollection _filters;
 
-    private readonly IServiceProvider _services;
-
-    public VSphereTabContribution(IPluginContext ctx) => _services = ctx.Services;
+    public VSphereTabContribution(
+        VSphereViewModel vm,
+        ICredentialStore credStore,
+        IBatchSettingsStore batchSettings,
+        VmFilterCollection filters)
+    {
+        _vm = vm;
+        _credStore = credStore;
+        _batchSettings = batchSettings;
+        _filters = filters;
+    }
 
     public string Header => "vSphere Baseimages";
     public int Order => 1000;
 
-    public object CreateView()
-    {
-        try
-        {
-            var vm = _services.GetRequiredService<VSphereViewModel>();
-            var credStore = _services.GetRequiredService<ICredentialStore>();
-            var batchSettings = _services.GetRequiredService<IBatchSettingsStore>();
-            var filters = _services.GetRequiredService<VmFilterCollection>();
-            return new VSphereView(vm, credStore, batchSettings, filters);
-        }
-        catch (Exception ex)
-        {
-            Log.Warn(ex, "vSphere-Tab-View konnte nicht erstellt werden.");
-            throw;
-        }
-    }
+    public object CreateView() => new VSphereView(_vm, _credStore, _batchSettings, _filters);
 }
