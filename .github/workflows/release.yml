@@ -1,0 +1,53 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build (Release)
+        run: dotnet build Checkmk-Plugin-VSphereBaseImage.slnx -c Release
+
+      - name: Package plugin artifact
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag.TrimStart('v')
+          $out = "artifacts"
+          New-Item -ItemType Directory -Path $out -Force | Out-Null
+          # Nur die Plugin-DLL — nicht die Contracts-DLL (kommt vom Cockpit).
+          Copy-Item "CheckmkPlugin.VSphereBaseImage/bin/Release/net10.0-windows10.0.19041.0/CheckmkPlugin.VSphereBaseImage.dll" "$out/"
+          Compress-Archive -Path "$out/CheckmkPlugin.VSphereBaseImage.dll" `
+                           -DestinationPath "Checkmk-Plugin-VSphereBaseImage-$version.zip" -Force
+
+      - name: Read release notes
+        id: notes
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $file = "RELEASE_NOTES/$tag.md"
+          if (Test-Path $file) {
+            $body = Get-Content $file -Raw
+          } else {
+            $body = "Plugin-Release $tag."
+          }
+          $delim = "EOF_$(New-Guid)"
+          "body<<$delim`n$body`n$delim" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: Checkmk-Plugin-VSphereBaseImage-*.zip
+          body: ${{ steps.notes.outputs.body }}

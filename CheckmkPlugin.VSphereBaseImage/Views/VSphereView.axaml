@@ -1,0 +1,61 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:CheckmkPlugin.VSphereBaseImage.ViewModels"
+             xmlns:models="using:CheckmkPlugin.VSphereBaseImage.Models"
+             x:Class="CheckmkPlugin.VSphereBaseImage.Views.VSphereView"
+             x:DataType="vm:VSphereViewModel">
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto,150" Margin="6">
+
+    <!-- Toolbar -->
+    <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
+      <TextBlock Grid.Column="0" Text="Filter:" VerticalAlignment="Center" Foreground="#AAAAAA" />
+      <ComboBox Grid.Column="1"
+                ItemsSource="{Binding Filters}"
+                SelectedItem="{Binding ActiveFilter}"
+                DisplayMemberBinding="{Binding Name}"
+                PlaceholderText="(Alle VMs)"
+                MinWidth="200" />
+      <Button Grid.Column="2" Content="Filter verwalten…" Click="OnManageFiltersClick" />
+      <TextBlock Grid.Column="4" Text="{Binding StatusMessage}" VerticalAlignment="Center"
+                 Foreground="#AAAAAA" TextTrimming="CharacterEllipsis" Margin="12,0" />
+      <Button Grid.Column="5" Content="Aktualisieren" Command="{Binding RefreshCommand}"
+              IsEnabled="{Binding !IsBusy}" />
+    </Grid>
+
+    <!-- Einstellungen-Zeile -->
+    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,6,0,6">
+      <Button Content="vCenter-Einstellungen…" Click="OnSettingsClick" />
+      <Button Content="Batch-Skript &amp; Agent-Share…" Click="OnBatchSettingsClick" />
+    </StackPanel>
+
+    <!-- VM-Grid -->
+    <DataGrid Grid.Row="2" ItemsSource="{Binding VisibleVms}"
+              SelectedItem="{Binding SelectedVm}"
+              IsReadOnly="True" GridLinesVisibility="Horizontal"
+              CanUserResizeColumns="True" CanUserSortColumns="True">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="240" />
+        <DataGridTextColumn Header="Power" Binding="{Binding PowerState}" Width="120" />
+        <DataGridTextColumn Header="CPU" Binding="{Binding CpuCount}" Width="60" />
+        <DataGridTextColumn Header="RAM (MiB)" Binding="{Binding MemoryMiB}" Width="100" />
+        <DataGridTextColumn Header="VM-ID" Binding="{Binding Id}" Width="*" />
+      </DataGrid.Columns>
+    </DataGrid>
+
+    <!-- Batch-Button -->
+    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right"
+                Spacing="8" Margin="0,8,0,8">
+      <Button Content="{Binding BatchButtonLabel}"
+              Click="OnBatchClick"
+              Background="#123E6B"
+              IsEnabled="{Binding !IsBusy}" />
+    </StackPanel>
+
+    <!-- Log-Panel -->
+    <TextBox Grid.Row="4" Text="{Binding LogText}" IsReadOnly="True"
+             AcceptsReturn="True" TextWrapping="NoWrap"
+             FontFamily="Consolas,Courier New,monospace"
+             VerticalContentAlignment="Top" />
+  </Grid>
+</UserControl>

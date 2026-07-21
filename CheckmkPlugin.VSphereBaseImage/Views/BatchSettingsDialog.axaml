@@ -1,0 +1,37 @@
+<ui:ChromeWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="using:CheckmkPlugin.VSphereBaseImage.UI"
+        x:Class="CheckmkPlugin.VSphereBaseImage.Views.BatchSettingsDialog"
+        Width="640" Height="520"
+        Title="Batch-Skript &amp; Agent-Share"
+        WindowStartupLocation="CenterOwner">
+  <Border BorderBrush="#3A3A3A" BorderThickness="1"
+          Background="{DynamicResource KrosteBackgroundBrush}">
+    <Grid RowDefinitions="40,*,Auto">
+      <ui:TitleBar Grid.Row="0" Title="Batch-Skript &amp; Agent-Share" />
+
+      <ScrollViewer Grid.Row="1">
+        <StackPanel Margin="16" Spacing="10">
+          <StackPanel Spacing="3">
+            <TextBlock Text="Agent-Share (Ordner mit dem aktuellen MSI)" />
+            <TextBox x:Name="ShareBox" PlaceholderText="\\samba01\...\CheckMK" />
+          </StackPanel>
+          <StackPanel Spacing="3">
+            <TextBlock Text="Update-Skript-Vorlage (Platzhalter: {host}, {installer})" />
+            <TextBox x:Name="ScriptBox" AcceptsReturn="True" Height="280"
+                     TextWrapping="NoWrap" FontFamily="Consolas,monospace"
+                     VerticalContentAlignment="Top" />
+            <TextBlock Text="Laeuft auf jeder Baseimage-VM waehrend des Batch. Enthaelt den Register-Befehl inkl. Passwort (Klartext)."
+                       Foreground="#707070" FontSize="11" TextWrapping="Wrap" />
+          </StackPanel>
+        </StackPanel>
+      </ScrollViewer>
+
+      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"
+                  Margin="16" Spacing="8">
+        <Button Content="Speichern" Click="OnSaveClick" Background="#123E6B" />
+        <Button Content="Abbrechen" Click="OnCancelClick" IsCancel="True" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</ui:ChromeWindow>
