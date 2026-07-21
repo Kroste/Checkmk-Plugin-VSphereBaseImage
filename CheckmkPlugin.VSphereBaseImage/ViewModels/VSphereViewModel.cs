@@ -34,6 +34,13 @@ public sealed partial class VSphereViewModel : ObservableObject
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private VmInfo? _selectedVm;
 
+    /// <summary>Freitext-Verfeinerung ueber den aktiven Filter (case-insensitive
+    /// Contains ueber VM-Name und Power-State). Analog zum Freitext-Feld im
+    /// Cockpit-Status-Tab.</summary>
+    [ObservableProperty] private string _filterText = "";
+
+    partial void OnFilterTextChanged(string value) => ApplyFilter();
+
     public string BatchButtonLabel =>
         Filters.Active is null
             ? $"Batch starten ({VisibleVms.Count} VMs)"
@@ -95,6 +102,13 @@ public sealed partial class VSphereViewModel : ObservableObject
         IEnumerable<VmInfo> q = _allVms;
         if (Filters.Active is { } f)
             q = q.Where(v => f.Matches(v.Name));
+        if (!string.IsNullOrWhiteSpace(FilterText))
+        {
+            var needle = FilterText.Trim();
+            q = q.Where(v =>
+                v.Name.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                || v.PowerState.Contains(needle, StringComparison.OrdinalIgnoreCase));
+        }
         foreach (var v in q) VisibleVms.Add(v);
         OnPropertyChanged(nameof(BatchButtonLabel));
     }

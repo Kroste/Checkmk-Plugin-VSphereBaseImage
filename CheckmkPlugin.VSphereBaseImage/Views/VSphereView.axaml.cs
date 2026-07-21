@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using CheckmkPlugin.VSphereBaseImage.Services;
@@ -25,9 +26,35 @@ public partial class VSphereView : UserControl
         _credStore = credStore;
         _batchSettings = batchSettings;
         _filters = filters;
+
+        // Ctrl+F von ueberall im Tab fokussiert das Freitext-Feld — analog Cockpit.
+        AddHandler(KeyDownEvent, OnTabKeyDown, RoutingStrategies.Tunnel);
     }
 
     public VSphereView() => AvaloniaXamlLoader.Load(this);
+
+    private void OnTabKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.F && e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        {
+            var box = this.FindControl<TextBox>("FilterTextBox");
+            if (box is not null)
+            {
+                box.Focus();
+                box.SelectAll();
+                e.Handled = true;
+            }
+        }
+    }
+
+    private void OnFilterTextKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape && sender is TextBox tb)
+        {
+            tb.Text = "";
+            e.Handled = true;
+        }
+    }
 
     private async void OnSettingsClick(object? sender, RoutedEventArgs e)
     {

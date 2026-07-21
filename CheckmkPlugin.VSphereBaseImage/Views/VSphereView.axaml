@@ -5,7 +5,7 @@
              x:Class="CheckmkPlugin.VSphereBaseImage.Views.VSphereView"
              x:DataType="vm:VSphereViewModel">
 
-  <Grid RowDefinitions="Auto,Auto,*,Auto,150" Margin="6">
+  <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,150" Margin="6">
 
     <!-- Toolbar -->
     <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
@@ -23,14 +23,19 @@
               IsEnabled="{Binding !IsBusy}" />
     </Grid>
 
+    <!-- Freitext-Verfeinerung ueber den aktiven Filter -->
+    <TextBox Grid.Row="1" Name="FilterTextBox" Text="{Binding FilterText}"
+             KeyDown="OnFilterTextKeyDown" Margin="0,6,0,0"
+             PlaceholderText="Freitext-Verfeinerung (VM-Name/Power-State, case-insensitive Contains)… — Ctrl+F fokussiert, Esc leert" />
+
     <!-- Einstellungen-Zeile -->
-    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,6,0,6">
+    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,6,0,6">
       <Button Content="vCenter-Einstellungen…" Click="OnSettingsClick" />
       <Button Content="Batch-Skript &amp; Agent-Share…" Click="OnBatchSettingsClick" />
     </StackPanel>
 
     <!-- VM-Grid -->
-    <DataGrid Grid.Row="2" ItemsSource="{Binding VisibleVms}"
+    <DataGrid Grid.Row="3" ItemsSource="{Binding VisibleVms}"
               SelectedItem="{Binding SelectedVm}"
               IsReadOnly="True" GridLinesVisibility="Horizontal"
               CanUserResizeColumns="True" CanUserSortColumns="True">
@@ -44,7 +49,7 @@
     </DataGrid>
 
     <!-- Batch-Button -->
-    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right"
+    <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right"
                 Spacing="8" Margin="0,8,0,8">
       <Button Content="{Binding BatchButtonLabel}"
               Click="OnBatchClick"
@@ -53,7 +58,7 @@
     </StackPanel>
 
     <!-- Log-Panel -->
-    <TextBox Grid.Row="4" Text="{Binding LogText}" IsReadOnly="True"
+    <TextBox Grid.Row="5" Text="{Binding LogText}" IsReadOnly="True"
              AcceptsReturn="True" TextWrapping="NoWrap"
              FontFamily="Consolas,Courier New,monospace"
              VerticalContentAlignment="Top" />
