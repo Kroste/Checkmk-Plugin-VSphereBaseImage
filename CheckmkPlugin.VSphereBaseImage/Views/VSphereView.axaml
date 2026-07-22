@@ -42,6 +42,8 @@
               DoubleTapped="OnVmDoubleTapped">
       <DataGrid.ContextMenu>
         <ContextMenu>
+          <MenuItem Header="VM-Details…" Click="OnOpenVmDetailsClick" />
+          <Separator />
           <MenuItem Header="RDP oeffnen" Click="OnRdpClick" />
           <MenuItem Header="Ping (Fenster)" Click="OnPingClick" />
           <Separator />

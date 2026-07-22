@@ -122,11 +122,18 @@ public partial class VSphereView : UserControl
     private VmInfo? SelectedVm()
         => DataContext is VSphereViewModel vm ? vm.SelectedVm : null;
 
-    private void OnVmDoubleTapped(object? sender, TappedEventArgs e)
+    private void OnVmDoubleTapped(object? sender, TappedEventArgs e) => OpenVmDetails();
+
+    private void OnOpenVmDetailsClick(object? sender, RoutedEventArgs e) => OpenVmDetails();
+
+    private void OpenVmDetails()
     {
-        // Doppelklick auf eine VM oeffnet die RDP-Sitzung — bei Windows-Baseimages
-        // ist RDP der Regelfall, deshalb als Shortcut zusaetzlich zum Kontextmenue.
-        if (SelectedVm() is { Name: { Length: > 0 } n }) _remote?.StartRdp(n);
+        if (SelectedVm() is not { } vm) return;
+        if (_credStore is null || _remote is null) return;
+        if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+        var detailVm = new VmDetailViewModel(vm, _credStore);
+        new VmDetailWindow(detailVm, _remote).Show(owner);
     }
 
     private void OnRdpClick(object? sender, RoutedEventArgs e)
