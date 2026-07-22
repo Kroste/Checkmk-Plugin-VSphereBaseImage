@@ -2,33 +2,67 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="using:CheckmkPlugin.VSphereBaseImage.UI"
         x:Class="CheckmkPlugin.VSphereBaseImage.Views.SettingsDialog"
-        Width="500" Height="360"
-        Title="vCenter-Einstellungen"
+        Width="520" Height="440"
+        Title="Verbindungen"
         WindowStartupLocation="CenterOwner">
   <Border BorderBrush="#3A3A3A" BorderThickness="1"
           Background="{DynamicResource KrosteBackgroundBrush}">
     <Grid RowDefinitions="40,*,Auto">
-      <ui:TitleBar Grid.Row="0" Title="vCenter-Einstellungen" />
+      <ui:TitleBar Grid.Row="0" Title="Verbindungen (vCenter &amp; DDC)" />
 
-      <StackPanel Grid.Row="1" Margin="16" Spacing="10">
-        <StackPanel Spacing="3">
-          <TextBlock Text="vCenter-URL" />
-          <TextBox x:Name="UrlBox" PlaceholderText="https://vc.lhp.intern" />
-        </StackPanel>
-        <StackPanel Spacing="3">
-          <TextBlock Text="Anmeldename (AD-User fuer vCenter)" />
-          <TextBox x:Name="UserBox" PlaceholderText="user@vsphere.local oder DOMAENE\User" />
-          <TextBlock Text="Weicht typischerweise vom Windows-Login ab — keine Vorbelegung."
-                     Foreground="#707070" FontSize="11" TextWrapping="Wrap" />
-        </StackPanel>
-        <StackPanel Spacing="3">
-          <TextBlock Text="Passwort (DPAPI-verschluesselt, user-lokal)" />
-          <TextBox x:Name="PasswordBox" PasswordChar="•" />
-          <TextBlock Text="Leer lassen behaelt das gespeicherte Passwort."
-                     Foreground="#707070" FontSize="11" TextWrapping="Wrap" />
-        </StackPanel>
-        <CheckBox x:Name="IgnoreCertBox" Content="Zertifikatsfehler ignorieren (self-signed / Lab)" />
-      </StackPanel>
+      <TabControl Grid.Row="1" Margin="8">
+
+        <!-- Tab 1: vCenter -->
+        <TabItem Header="vCenter">
+          <StackPanel Margin="16" Spacing="10">
+            <StackPanel Spacing="3">
+              <TextBlock Text="vCenter-URL" />
+              <TextBox x:Name="VCenterUrlBox" PlaceholderText="https://vc.lhp.intern" />
+            </StackPanel>
+            <StackPanel Spacing="3">
+              <TextBlock Text="Anmeldename (AD-User fuer vCenter)" />
+              <TextBox x:Name="VCenterUserBox" PlaceholderText="user@vsphere.local oder DOMAENE\User" />
+              <TextBlock Text="Weicht typischerweise vom Windows-Login ab — keine Vorbelegung."
+                         Foreground="#707070" FontSize="11" TextWrapping="Wrap" />
+            </StackPanel>
+            <StackPanel Spacing="3">
+              <TextBlock Text="Passwort (DPAPI-verschluesselt, user-lokal)" />
+              <TextBox x:Name="VCenterPasswordBox" PasswordChar="•" />
+              <TextBlock Text="Leer lassen behaelt das gespeicherte Passwort."
+                         Foreground="#707070" FontSize="11" TextWrapping="Wrap" />
+            </StackPanel>
+            <CheckBox x:Name="VCenterIgnoreCertBox"
+                      Content="Zertifikatsfehler ignorieren (self-signed / Lab)" />
+          </StackPanel>
+        </TabItem>
+
+        <!-- Tab 2: DDC (Citrix Delivery Controller) -->
+        <TabItem Header="DDC (Citrix)">
+          <StackPanel Margin="16" Spacing="10">
+            <StackPanel Spacing="3">
+              <TextBlock Text="DDC-URL (Citrix Delivery Controller)" />
+              <TextBox x:Name="DdcUrlBox" PlaceholderText="https://ddc.lhp.intern" />
+            </StackPanel>
+            <StackPanel Spacing="3">
+              <TextBlock Text="Anmeldename (Domaenen-User fuers DDC)" />
+              <TextBox x:Name="DdcUserBox" PlaceholderText="DOMAENE\User" />
+              <TextBlock Text="Weicht typischerweise vom Windows-Login und vom vCenter-User ab — keine Vorbelegung."
+                         Foreground="#707070" FontSize="11" TextWrapping="Wrap" />
+            </StackPanel>
+            <StackPanel Spacing="3">
+              <TextBlock Text="Passwort (DPAPI-verschluesselt, user-lokal)" />
+              <TextBox x:Name="DdcPasswordBox" PasswordChar="•" />
+              <TextBlock Text="Leer lassen behaelt das gespeicherte Passwort."
+                         Foreground="#707070" FontSize="11" TextWrapping="Wrap" />
+            </StackPanel>
+            <CheckBox x:Name="DdcIgnoreCertBox"
+                      Content="Zertifikatsfehler ignorieren (self-signed / Lab)" />
+            <TextBlock Text="Der Machine-Catalog-Update-Workflow wird noch angebunden — diese Zugangsdaten sind die Vorbereitung."
+                       Foreground="#707070" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0" />
+          </StackPanel>
+        </TabItem>
+
+      </TabControl>
 
       <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"
                   Margin="16" Spacing="8">

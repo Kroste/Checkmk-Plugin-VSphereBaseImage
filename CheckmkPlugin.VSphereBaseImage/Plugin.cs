@@ -35,6 +35,7 @@ public sealed class Plugin : IPlugin
         if (OperatingSystem.IsWindows())
         {
             services.AddSingleton<ICredentialStore>(_ => new DpapiCredentialStore(dataDir));
+            services.AddSingleton<IDdcCredentialStore>(_ => new DpapiDdcCredentialStore(dataDir));
             services.AddSingleton<VSphereViewModel>();
             services.AddSingleton<ITabContribution, VSphereTabContribution>();
         }

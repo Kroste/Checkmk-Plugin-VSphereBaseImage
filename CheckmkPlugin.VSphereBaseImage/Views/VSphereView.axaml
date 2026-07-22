@@ -30,7 +30,7 @@
 
     <!-- Einstellungen-Zeile -->
     <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,6,0,6">
-      <Button Content="vCenter-Einstellungen…" Click="OnSettingsClick" />
+      <Button Content="Verbindungen…" Click="OnSettingsClick" />
       <Button Content="Batch-Skript &amp; Agent-Share…" Click="OnBatchSettingsClick" />
     </StackPanel>
 

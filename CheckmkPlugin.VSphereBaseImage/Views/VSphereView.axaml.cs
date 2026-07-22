@@ -12,18 +12,21 @@ namespace CheckmkPlugin.VSphereBaseImage.Views;
 public partial class VSphereView : UserControl
 {
     private readonly ICredentialStore? _credStore;
+    private readonly IDdcCredentialStore? _ddcStore;
     private readonly IBatchSettingsStore? _batchSettings;
     private readonly VmFilterCollection? _filters;
 
     public VSphereView(
         VSphereViewModel vm,
         ICredentialStore credStore,
+        IDdcCredentialStore ddcStore,
         IBatchSettingsStore batchSettings,
         VmFilterCollection filters)
     {
         AvaloniaXamlLoader.Load(this);
         DataContext = vm;
         _credStore = credStore;
+        _ddcStore = ddcStore;
         _batchSettings = batchSettings;
         _filters = filters;
 
@@ -58,9 +61,9 @@ public partial class VSphereView : UserControl
 
     private async void OnSettingsClick(object? sender, RoutedEventArgs e)
     {
-        if (_credStore is null) return;
+        if (_credStore is null || _ddcStore is null) return;
         if (TopLevel.GetTopLevel(this) is not Window owner) return;
-        var dlg = new SettingsDialog(_credStore);
+        var dlg = new SettingsDialog(_credStore, _ddcStore);
         await dlg.ShowDialog(owner);
     }
 
