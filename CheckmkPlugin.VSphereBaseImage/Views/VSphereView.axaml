@@ -61,6 +61,10 @@
     <!-- Batch-Button -->
     <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right"
                 Spacing="8" Margin="0,8,0,8">
+      <Button Content="Batch abbrechen"
+              Command="{Binding CancelBatchCommand}"
+              IsVisible="{Binding IsBusy}"
+              Background="#7A2D2D" />
       <Button Content="{Binding BatchButtonLabel}"
               Click="OnBatchClick"
               Background="#123E6B"

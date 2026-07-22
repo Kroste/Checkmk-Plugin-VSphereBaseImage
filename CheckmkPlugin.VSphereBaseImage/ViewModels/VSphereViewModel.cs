@@ -35,6 +35,11 @@ public sealed partial class VSphereViewModel : ObservableObject
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private VmInfo? _selectedVm;
 
+    /// <summary>CTS des laufenden Batches — wird beim Cancel-Button ausgeloest,
+    /// beendet aber nur die Warteschritte (Tools/Ping/Off) sauber. Die
+    /// aktuelle VM wird zu Ende gefuehrt, weitere VMs werden uebersprungen.</summary>
+    private CancellationTokenSource? _batchCts;
+
     /// <summary>Freitext-Verfeinerung ueber den aktiven Filter (case-insensitive
     /// Contains ueber VM-Name und Power-State). Analog zum Freitext-Feld im
     /// Cockpit-Status-Tab.</summary>
@@ -155,6 +160,13 @@ public sealed partial class VSphereViewModel : ObservableObject
             return;
         }
 
+        // Interne CTS mit dem externen Token koppeln, damit sowohl der
+        // Cancel-Button (CancelBatchCommand) als auch ein aeusserer Abbruch
+        // greifen. Alte CTS ggf. entsorgen.
+        _batchCts?.Dispose();
+        _batchCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var batchCt = _batchCts.Token;
+
         var creds = _credStore.Load();
         var vcPw = _credStore.DecryptPassword(creds);
         if (string.IsNullOrEmpty(vcPw))
@@ -202,7 +214,7 @@ public sealed partial class VSphereViewModel : ObservableObject
                     StatusMessage = line;
                 });
 
-                var results = await runner.RunAsync(assignments, options, progress, ct);
+                var results = await runner.RunAsync(assignments, options, progress, batchCt);
                 var ok = results.Count(r => r.Success);
                 var published = results.Count(r => r.CatalogPublished is not null);
                 StatusMessage = $"Batch beendet: {ok}/{results.Count} erfolgreich, {published} Kataloge publiziert.";
@@ -218,6 +230,19 @@ public sealed partial class VSphereViewModel : ObservableObject
             Log.Warn(ex, "Batch-Runner fatal.");
             StatusMessage = $"Batch-Fehler: {ex.Message}";
         }
-        finally { IsBusy = false; }
+        finally
+        {
+            IsBusy = false;
+            _batchCts?.Dispose();
+            _batchCts = null;
+        }
+    }
+
+    [RelayCommand]
+    private void CancelBatch()
+    {
+        if (_batchCts is null || _batchCts.IsCancellationRequested) return;
+        StatusMessage = "Batch wird abgebrochen — bitte kurz warten…";
+        _batchCts.Cancel();
     }
 }
