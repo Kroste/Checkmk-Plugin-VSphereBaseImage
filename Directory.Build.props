@@ -11,6 +11,9 @@
     <RepositoryType>git</RepositoryType>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- MinVer soll die vX.Y.Z-Tags erkennen. Ohne diesen Prefix ignoriert MinVer
+         die Tags und liefert 0.0.0-alpha.0 -> Plugin meldet Version "0.0.0". -->
+    <MinVerTagPrefix>v</MinVerTagPrefix>
   </PropertyGroup>
 
   <ItemGroup>
