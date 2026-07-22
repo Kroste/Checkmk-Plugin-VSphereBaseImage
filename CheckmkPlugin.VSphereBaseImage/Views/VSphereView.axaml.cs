@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Platform.Storage;
 using CheckmkPlugin.VSphereBaseImage.Models;
 using CheckmkPlugin.VSphereBaseImage.Services;
 using CheckmkPlugin.VSphereBaseImage.ViewModels;
@@ -184,5 +185,41 @@ public partial class VSphereView : UserControl
         var clip = TopLevel.GetTopLevel(this)?.Clipboard;
         if (clip is null) return;
         await clip.SetTextAsync(text);
+    }
+
+    // --- Log-Panel-Kontextmenue --------------------------------------------
+
+    private async void OnCopyLogClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not VSphereViewModel vm) return;
+        await CopyAsync(vm.LogText);
+    }
+
+    private async void OnSaveLogClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not VSphereViewModel vm) return;
+        if (TopLevel.GetTopLevel(this) is not { } top) return;
+        var file = await top.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Batch-Log speichern",
+            SuggestedFileName = $"vsphere-batch-{DateTime.Now:yyyyMMdd-HHmm}.log",
+            DefaultExtension = "log",
+            FileTypeChoices = [new FilePickerFileType("Log") { Patterns = ["*.log", "*.txt"] }]
+        });
+        if (file is null) return;
+        try
+        {
+            await File.WriteAllTextAsync(file.Path.LocalPath, vm.LogText ?? "");
+            vm.StatusMessage = $"Log gespeichert: {file.Name}";
+        }
+        catch (Exception ex)
+        {
+            vm.StatusMessage = $"Log speichern fehlgeschlagen: {ex.Message}";
+        }
+    }
+
+    private void OnClearLogClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is VSphereViewModel vm) vm.LogText = "";
     }
 }

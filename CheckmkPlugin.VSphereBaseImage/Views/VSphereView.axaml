@@ -74,9 +74,18 @@
     </StackPanel>
 
     <!-- Log-Panel -->
-    <TextBox Grid.Row="5" Text="{Binding LogText}" IsReadOnly="True"
+    <TextBox Grid.Row="5" Name="LogBox" Text="{Binding LogText}" IsReadOnly="True"
              AcceptsReturn="True" TextWrapping="NoWrap"
              FontFamily="Consolas,Courier New,monospace"
-             VerticalContentAlignment="Top" />
+             VerticalContentAlignment="Top">
+      <TextBox.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="Log kopieren" Click="OnCopyLogClick" />
+          <MenuItem Header="Log als Datei speichern…" Click="OnSaveLogClick" />
+          <Separator />
+          <MenuItem Header="Log leeren" Click="OnClearLogClick" />
+        </ContextMenu>
+      </TextBox.ContextMenu>
+    </TextBox>
   </Grid>
 </UserControl>
