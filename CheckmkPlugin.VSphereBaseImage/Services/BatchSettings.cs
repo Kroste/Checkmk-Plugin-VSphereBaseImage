@@ -12,6 +12,20 @@ public sealed class BatchSettings
     public string AgentShare { get; set; } = @"\\samba01\542$\5424_IT-Basis-Dienste\CheckMK";
     public string AgentUpdateScript { get; set; } = DefaultAgentUpdateScript;
 
+    /// <summary>Zeit, in der die VM nach PowerOn/Restart per VMware-Tools und
+    /// per Ping erreichbar sein muss. Default 600 s (10 min) — reicht selbst
+    /// fuer Windows-Baseimages mit Domain-Join und Pending-Updates beim Boot.</summary>
+    public int PowerOnTimeoutSeconds { get; set; } = 600;
+
+    /// <summary>Zeit fuer den Guest-Shutdown, bevor der Snapshot angelegt
+    /// wird. Default 300 s (5 min) — Windows braucht mit Pending-Login-
+    /// Skripten manchmal drei bis vier Minuten.</summary>
+    public int ShutdownTimeoutSeconds { get; set; } = 300;
+
+    /// <summary>Poll-Intervall fuer VMware-Tools- und Power-Off-Warteschritte.
+    /// Default 5 s — Kompromiss aus Reaktionszeit und vCenter-Last.</summary>
+    public int ToolsPollIntervalSeconds { get; set; } = 5;
+
     public const string DefaultAgentUpdateScript =
         "# Laeuft auf dem Zielhost. {host}=Hostname, {installer}=lokaler MSI-Pfad.\n" +
         "$ErrorActionPreference = 'Stop'\n" +

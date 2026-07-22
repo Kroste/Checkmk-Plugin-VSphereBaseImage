@@ -204,9 +204,9 @@ public sealed partial class VSphereViewModel : ObservableObject
                     AdminPassword: adminPassword,
                     AgentShare: pluginCfg.AgentShare,
                     ScriptTemplate: pluginCfg.AgentUpdateScript,
-                    PowerOnTimeout: TimeSpan.FromMinutes(10),
-                    ShutdownTimeout: TimeSpan.FromMinutes(5),
-                    ToolsPollInterval: TimeSpan.FromSeconds(5));
+                    PowerOnTimeout: TimeSpan.FromSeconds(Math.Max(30, pluginCfg.PowerOnTimeoutSeconds)),
+                    ShutdownTimeout: TimeSpan.FromSeconds(Math.Max(30, pluginCfg.ShutdownTimeoutSeconds)),
+                    ToolsPollInterval: TimeSpan.FromSeconds(Math.Max(1, pluginCfg.ToolsPollIntervalSeconds)));
 
                 var progress = new Progress<string>(line =>
                 {

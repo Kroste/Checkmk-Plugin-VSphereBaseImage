@@ -54,7 +54,8 @@ Tab erscheint nicht.
 - **Batch-Workflow**: für jede sichtbare VM sequenziell PowerOn → Tools-Ready
   → Ping-Reachable → `IAgentUpdater.UpdateAsync` → GuestShutdown → PowerOff.
   Fehler brechen den Batch nicht ab, sondern werden gesammelt und am Ende
-  summiert. Timeouts 10 min / 5 min hart codiert.
+  summiert. Timeouts über `BatchSettings` konfigurierbar (Defaults 600 s /
+  300 s / 5 s Poll; Untergrenzen 30 s / 1 s erzwingt der Runner).
 - **Batch-Settings**: eigene AgentShare + PowerShell-Skript-Vorlage pro Plugin
   (nicht die vom AgentUpdater-Plugin). Zweck: Baseimages können andere
   Voraussetzungen brauchen (z. B. Register mit anderem Site-Namen).
@@ -117,9 +118,12 @@ Tab erscheint nicht.
    pro VM direkt nach Snapshot. Publish-Fehler sind non-fatal (Update +
    Snapshot sind ja schon durch — Admin kann im DDC manuell nachziehen).
 
-2. **Timeouts konfigurierbar machen** — aktuell PowerOn 10 min, Shutdown
-   5 min, Tools-Poll 5 s hart im Code. In `BatchSettings` verschieben und
-   im `BatchSettingsDialog` bearbeitbar machen.
+2. ✅ **Timeouts konfigurierbar** *(v0.8.0)* — `BatchSettings` hat
+   `PowerOnTimeoutSeconds`, `ShutdownTimeoutSeconds`,
+   `ToolsPollIntervalSeconds` (Defaults 600/300/5), im
+   `BatchSettingsDialog` als Timeout-Panel editierbar. Untergrenzen
+   (Timeouts ≥ 30 s, Poll ≥ 1 s) erzwingt der Runner via `Math.Max` — so
+   kippt ein zu strammer Wert nicht in einen Sofort-Timeout.
 
 3. ✅ **GUI-Progress-Cancel** *(v0.7.0)* — „Batch abbrechen"-Button
    im Batch-Panel triggert die interne CTS; der Runner unterbricht die
