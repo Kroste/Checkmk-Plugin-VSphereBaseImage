@@ -1,6 +1,7 @@
 using System.Runtime.Versioning;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using CheckmkPlugin.VSphereBaseImage.Models;
@@ -16,13 +17,15 @@ public partial class VSphereView : UserControl
     private readonly IDdcCredentialStore? _ddcStore;
     private readonly IBatchSettingsStore? _batchSettings;
     private readonly VmFilterCollection? _filters;
+    private readonly VmRemoteTools? _remote;
 
     public VSphereView(
         VSphereViewModel vm,
         ICredentialStore credStore,
         IDdcCredentialStore ddcStore,
         IBatchSettingsStore batchSettings,
-        VmFilterCollection filters)
+        VmFilterCollection filters,
+        VmRemoteTools remote)
     {
         AvaloniaXamlLoader.Load(this);
         DataContext = vm;
@@ -30,6 +33,7 @@ public partial class VSphereView : UserControl
         _ddcStore = ddcStore;
         _batchSettings = batchSettings;
         _filters = filters;
+        _remote = remote;
 
         // Ctrl+F von ueberall im Tab fokussiert das Freitext-Feld — analog Cockpit.
         AddHandler(KeyDownEvent, OnTabKeyDown, RoutingStrategies.Tunnel);
@@ -111,5 +115,41 @@ public partial class VSphereView : UserControl
         if (creds is null) return;
 
         await vm.RunBatchAsync(assignments, creds.User, creds.Password);
+    }
+
+    // --- Kontextmenue am VM-Grid ------------------------------------------
+
+    private VmInfo? SelectedVm()
+        => DataContext is VSphereViewModel vm ? vm.SelectedVm : null;
+
+    private void OnVmDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        // Doppelklick auf eine VM oeffnet die RDP-Sitzung — bei Windows-Baseimages
+        // ist RDP der Regelfall, deshalb als Shortcut zusaetzlich zum Kontextmenue.
+        if (SelectedVm() is { Name: { Length: > 0 } n }) _remote?.StartRdp(n);
+    }
+
+    private void OnRdpClick(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedVm() is { Name: { Length: > 0 } n }) _remote?.StartRdp(n);
+    }
+
+    private void OnPingClick(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedVm() is { Name: { Length: > 0 } n }) _remote?.StartPing(n);
+    }
+
+    private async void OnCopyVmNameClick(object? sender, RoutedEventArgs e)
+        => await CopyAsync(SelectedVm()?.Name);
+
+    private async void OnCopyVmIdClick(object? sender, RoutedEventArgs e)
+        => await CopyAsync(SelectedVm()?.Id);
+
+    private async Task CopyAsync(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return;
+        var clip = TopLevel.GetTopLevel(this)?.Clipboard;
+        if (clip is null) return;
+        await clip.SetTextAsync(text);
     }
 }

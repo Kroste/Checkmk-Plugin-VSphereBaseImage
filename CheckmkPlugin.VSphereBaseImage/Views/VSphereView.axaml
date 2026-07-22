@@ -35,10 +35,20 @@
     </StackPanel>
 
     <!-- VM-Grid -->
-    <DataGrid Grid.Row="3" ItemsSource="{Binding VisibleVms}"
+    <DataGrid Grid.Row="3" Name="VmGrid" ItemsSource="{Binding VisibleVms}"
               SelectedItem="{Binding SelectedVm}"
               IsReadOnly="True" GridLinesVisibility="Horizontal"
-              CanUserResizeColumns="True" CanUserSortColumns="True">
+              CanUserResizeColumns="True" CanUserSortColumns="True"
+              DoubleTapped="OnVmDoubleTapped">
+      <DataGrid.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="RDP oeffnen" Click="OnRdpClick" />
+          <MenuItem Header="Ping (Fenster)" Click="OnPingClick" />
+          <Separator />
+          <MenuItem Header="VM-Name kopieren" Click="OnCopyVmNameClick" />
+          <MenuItem Header="VM-ID kopieren" Click="OnCopyVmIdClick" />
+        </ContextMenu>
+      </DataGrid.ContextMenu>
       <DataGrid.Columns>
         <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="240" />
         <DataGridTextColumn Header="Power" Binding="{Binding PowerState}" Width="120" />

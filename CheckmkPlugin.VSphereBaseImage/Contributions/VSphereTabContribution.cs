@@ -20,23 +20,27 @@ public sealed class VSphereTabContribution : ITabContribution
     private readonly IDdcCredentialStore _ddcStore;
     private readonly IBatchSettingsStore _batchSettings;
     private readonly VmFilterCollection _filters;
+    private readonly VmRemoteTools _remote;
 
     public VSphereTabContribution(
         VSphereViewModel vm,
         ICredentialStore credStore,
         IDdcCredentialStore ddcStore,
         IBatchSettingsStore batchSettings,
-        VmFilterCollection filters)
+        VmFilterCollection filters,
+        VmRemoteTools remote)
     {
         _vm = vm;
         _credStore = credStore;
         _ddcStore = ddcStore;
         _batchSettings = batchSettings;
         _filters = filters;
+        _remote = remote;
     }
 
     public string Header => "vSphere Baseimages";
     public int Order => 1000;
 
-    public object CreateView() => new VSphereView(_vm, _credStore, _ddcStore, _batchSettings, _filters);
+    public object CreateView()
+        => new VSphereView(_vm, _credStore, _ddcStore, _batchSettings, _filters, _remote);
 }

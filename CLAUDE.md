@@ -29,10 +29,12 @@ Kroste-Account keinen `write:packages`-Scope hat).
 | Entry-Point (IPlugin) | `Plugin.cs` |
 | Contribution | `Contributions/VSphereTabContribution.cs` (ITabContribution, Order 1000) |
 | vCenter-REST-Client | `Services/VSphereClient.cs` — Session-Auth mit Basic → `vmware-api-session-id`-Header, auto-relogin bei 401 |
-| Credential-Store | `Services/CredentialStore.cs` — DPAPI-CurrentUser, **KEINE** Vorbelegung mit `Environment.UserName` |
-| Batch-Runner | `Services/BatchRunner.cs` — PowerOn → Tools-Ready → Ping → IAgentUpdater → GuestShutdown → Off |
+| Citrix-REST-Client | `Services/CitrixClient.cs` — Orchestration-API, `POST tokens` → Bearer, `$UpdateProvisioningScheme` |
+| Credential-Stores | `Services/CredentialStore.cs` (vCenter) und `Services/DdcCredentialStore.cs` (Citrix DDC) — beides DPAPI-CurrentUser, **KEINE** Vorbelegung mit `Environment.UserName` (weicht typischerweise ab) |
+| Batch-Runner | `Services/BatchRunner.cs` — PowerOn → Tools-Ready → Ping → IAgentUpdater → GuestShutdown → Off → Snapshot → Citrix-Publish → Power-State-Restore |
+| Remote-Tools | `Services/VmRemoteTools.cs` — RDP (`mstsc /v:<vm>`) und Ping (`cmd /k ping -t`) fuer das Kontextmenue am VM-Grid |
 | VM-Filter | `Models/VmFilter.cs` + `Services/VmFilterCollection.cs` (Live-Wrapper analog Cockpit-HostFilterCollection) |
-| UI | `Views/VSphereView.axaml`, `Views/FilterManagerWindow.axaml`, `Views/SettingsDialog.axaml`, `Views/BatchSettingsDialog.axaml`, `Views/CredentialDialog.axaml` |
+| UI | `Views/VSphereView.axaml`, `Views/FilterManagerWindow.axaml`, `Views/SettingsDialog.axaml`, `Views/BatchSettingsDialog.axaml`, `Views/CredentialDialog.axaml`, `Views/CatalogPickerDialog.axaml` |
 | ChromeWindow + TitleBar | `UI/ChromeWindow.cs`, `UI/TitleBar.axaml` — dupliziert aus dem Cockpit (bei Kroste-Chrome-Änderungen hier nachziehen) |
 
 **Plugin-Abhängigkeit**: Plugin 2 konsumiert `IAgentUpdater` aus
@@ -58,6 +60,12 @@ Tab erscheint nicht.
   Voraussetzungen brauchen (z. B. Register mit anderem Site-Namen).
 - **UpdateChannelUrl** in `PluginMetadata` gesetzt — Cockpit-Plugin-Update
   (ab Cockpit v1.7.2) prüft und installiert automatisch.
+- **Kontextmenü am VM-Grid** *(v0.6.0)*: RDP öffnen (`mstsc /v:<vm-name>`),
+  Ping-Fenster (`cmd /k ping -t`), VM-Name/VM-ID in die Zwischenablage.
+  Doppelklick auf eine Zeile öffnet direkt RDP — bei Windows-Baseimages der
+  Regelfall. Kein FQDN-Suffix, weil vSphere-VMs ihren Windows-Hostnamen als
+  VM-Namen tragen; wenn das im Fachbereich mal auseinanderfällt, kommt ein
+  Domain-Suffix als Plugin-Setting.
 
 ## 4 · Roadmap
 

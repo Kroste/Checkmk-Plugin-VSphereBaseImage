@@ -36,6 +36,7 @@ public sealed class Plugin : IPlugin
         {
             services.AddSingleton<ICredentialStore>(_ => new DpapiCredentialStore(dataDir));
             services.AddSingleton<IDdcCredentialStore>(_ => new DpapiDdcCredentialStore(dataDir));
+            services.AddSingleton<VmRemoteTools>();
             services.AddSingleton<VSphereViewModel>();
             services.AddSingleton<ITabContribution, VSphereTabContribution>();
         }
