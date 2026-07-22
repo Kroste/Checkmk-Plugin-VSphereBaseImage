@@ -79,16 +79,24 @@ Tab erscheint nicht.
    Snapshots aufräumen (Retention-Policy: letzte N behalten). Der Snapshot ist
    die Referenz, mit der Citrix den Maschinenkatalog ausrollt.
 
-   c. **Citrix-CVAD-On-Prem-Machine-Catalog-Update** *(offener Klärungsbedarf
-   — nicht bauen bevor der User grünes Licht gibt)* — nach dem Snapshot
-   den Citrix-Delivery-Controller anweisen, das Master-Image des betroffenen
-   Machine Catalogs auf den neuen Snapshot zu heben. On-Prem heißt: entweder
-   Citrix-REST-API (`/citrix/orchestration/v1/…`, dedizierte Citrix-Auth) oder
-   PowerShell-Remoting auf den DDC mit `Publish-ProvMasterVmImage
-   -ProvisioningSchemeName … -MasterImageVM …`. Vor dem Bau klären: welchen
-   DDC anspringen, Zuordnung VM → Katalog (Namenskonvention CTX???00 →
-   Katalog X?), separater Katalog-Store oder auf Zuruf, Citrix-Anmeldung
-   (Domänen-Admin vs. dedizierter Service-Account).
+   c. **Citrix-CVAD-On-Prem-Machine-Catalog-Update** — nach dem Snapshot den
+   DDC anweisen, das Master-Image des betroffenen Machine Catalogs auf den
+   neuen Snapshot zu heben. **Auth-Weg entschieden: Citrix-Orchestration-
+   REST-API** (`https://<ddc>/citrix/orchestration/api/…`, `POST /tokens` für
+   Bearer, dann `POST /{siteid}/MachineCatalogs/{catalog}/$UpdateProvisioningScheme`
+   mit `MasterImage: XdHyp:\\HostingUnits\\<unit>\\<vmname>.vm\\<snapshot>.snapshot`).
+   DDC-Anmeldedaten sind seit v0.3.0 im Settings-Dialog konfigurierbar
+   (`ddc-credentials.json`, DPAPI). **Noch zu klären vor Umsetzung**:
+
+   - **VM → Katalog-Zuordnung**: Namenskonvention (`CTX01100` → Katalog
+     `CTX01`, Regex-Capture in Batch-Settings), manuelle Auswahl je VM per
+     Dropdown aus `GET /MachineCatalogs`, oder am `VmFilter` mitspeichern.
+   - **Trigger-Zeitpunkt**: pro VM direkt nach Snapshot, oder Sammel-Publish
+     am Batch-Ende (einmal je Katalog).
+   - **Site-ID im DDC**: single-Site oder wählbar in den Settings?
+   - **Hosting-Unit-Name** für den XdHyp-Pfad (kommt vermutlich aus dem
+     bereits konfigurierten vSphere-Hosting im DDC, per `GET /Hypervisors`
+     abfragbar).
 
 2. **Timeouts konfigurierbar machen** — aktuell PowerOn 10 min, Shutdown
    5 min, Tools-Poll 5 s hart im Code. In `BatchSettings` verschieben und
