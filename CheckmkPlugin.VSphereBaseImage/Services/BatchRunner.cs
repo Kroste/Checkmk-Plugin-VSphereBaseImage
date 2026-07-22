@@ -6,7 +6,12 @@ using NLog;
 
 namespace CheckmkPlugin.VSphereBaseImage.Services;
 
-public sealed record BatchStepResult(string VmName, bool Success, string Message);
+public sealed record BatchStepResult(
+    string VmName,
+    bool Success,
+    string Message,
+    string? SnapshotName = null,
+    string? SnapshotId = null);
 
 public sealed record BatchOptions(
     string AdminUser,
@@ -19,12 +24,16 @@ public sealed record BatchOptions(
 
 /// <summary>
 /// Orchestriert den Baseimage-Update-Workflow ueber eine Liste von VMs:
-///  PowerOn -> warten bis VMware-Tools laufen -> warten bis der Guest per Ping
-///  erreichbar ist -> Agent-Update via <see cref="IAgentUpdater"/> aus Plugin 1
-///  -> Guest-Shutdown -> warten bis Power-Off -> naechste VM.
+///  Power-State merken -> (falls aus) PowerOn -> warten bis VMware-Tools laufen
+///  -> warten bis der Guest per Ping erreichbar ist -> Agent-Update via
+///  <see cref="IAgentUpdater"/> aus Plugin 1 -> Guest-Shutdown -> warten bis
+///  Power-Off -> Snapshot anlegen (Aus-Zustand ist der saubere Snapshot-Punkt)
+///  -> falls die VM vor dem Update AN war: wieder PowerOn (Power-State-Restore).
 ///
 /// Fehler bei einer VM brechen die Batch NICHT ab; sie werden gesammelt und am
-/// Ende summiert.
+/// Ende summiert. Snapshot-Fehler sind non-fatal — das Update ist ja schon
+/// drin, nur die Snapshot-Referenz fuer den spaeteren Citrix-Katalog-Publish
+/// fehlt fuer diese VM.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public sealed class BatchRunner
@@ -55,8 +64,8 @@ public sealed class BatchRunner
 
             try
             {
-                await UpdateOneAsync(vm, options, progress, ct);
-                results.Add(new BatchStepResult(vm.Name, true, "OK"));
+                var (snapshotName, snapshotId) = await UpdateOneAsync(vm, options, progress, ct);
+                results.Add(new BatchStepResult(vm.Name, true, "OK", snapshotName, snapshotId));
                 progress.Report($"[{i + 1}/{vms.Count}] {vm.Name} — abgeschlossen ✔");
             }
             catch (OperationCanceledException)
@@ -74,19 +83,24 @@ public sealed class BatchRunner
         return results;
     }
 
-    private async Task UpdateOneAsync(
+    private async Task<(string? snapshotName, string? snapshotId)> UpdateOneAsync(
         VmInfo vm, BatchOptions options, IProgress<string> progress, CancellationToken ct)
     {
-        // 1) Power on (falls noch aus).
+        // 0) Power-State-vor-Update erfassen, damit wir ihn am Ende wiederherstellen.
+        //    Fuer CTX???00-Baseimages ist der Normalfall "vorher aus, hinterher aus".
         var current = await _vsphere.GetVmAsync(vm.Id, ct);
-        if (!current.IsPoweredOn)
+        var wasOn = current.IsPoweredOn;
+        progress.Report($"  → Ausgangs-Power-State: {(wasOn ? "POWERED_ON" : "POWERED_OFF")}");
+
+        // 1) Power on (falls noch aus).
+        if (!wasOn)
         {
-            progress.Report($"  → PowerOn");
+            progress.Report("  → PowerOn");
             await _vsphere.PowerOnAsync(vm.Id, ct);
         }
         else
         {
-            progress.Report($"  → bereits an");
+            progress.Report("  → bereits an — kein extra PowerOn");
         }
 
         // 2) Warten bis VMware-Tools RUNNING (bis PowerOnTimeout).
@@ -130,8 +144,10 @@ public sealed class BatchRunner
         if (!updateResult.Success)
             throw new InvalidOperationException("Agent-Update fehlgeschlagen — siehe Log.");
 
-        // 6) Guest-Shutdown.
-        progress.Report("  → Guest-Shutdown");
+        // 6) Guest-Shutdown fuer den Snapshot-Zeitpunkt (auch wenn die VM
+        //    vorher AN war — Snapshot einer ausgeschalteten VM ist sauber und
+        //    schnell, kein Memory-State-Konsistenz-Risiko).
+        progress.Report("  → Guest-Shutdown (Snapshot-Vorbereitung)");
         await _vsphere.GuestShutdownAsync(vm.Id, ct);
 
         // 7) Warten bis POWERED_OFF.
@@ -144,6 +160,42 @@ public sealed class BatchRunner
             },
             TimeSpan.FromSeconds(5), options.ShutdownTimeout, ct);
         if (!offReached) throw new InvalidOperationException("VM ging nicht innerhalb Timeout in Power-Off.");
+
+        // 8) Snapshot anlegen — dient spaeter als Master-Image fuer den
+        //    Citrix-Katalog-Publish. Fehler NICHT fatal: der Agent ist ja
+        //    schon drin. Ohne Snapshot fehlt nur die Referenz fuer den
+        //    naechsten Roadmap-1c-Schritt.
+        var snapshotName = $"checkmk-update-{DateTime.Now:yyyyMMdd-HHmmss}";
+        progress.Report($"  → Snapshot anlegen: {snapshotName}");
+        string? snapshotId = null;
+        try
+        {
+            snapshotId = await _vsphere.CreateSnapshotAsync(
+                vm.Id, snapshotName,
+                "Angelegt vom Checkmk Cockpit (vSphere-Baseimage-Plugin) nach Agent-Update.",
+                ct);
+            progress.Report($"  → Snapshot-ID: {snapshotId ?? "(unbekannt)"}");
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "Snapshot-Anlage fuer {Vm} fehlgeschlagen.", vm.Name);
+            progress.Report($"  → WARN: Snapshot fehlgeschlagen: {ex.Message}");
+            snapshotName = null;
+        }
+
+        // 9) Power-State-Restore: wenn die VM VOR dem Update AN war, wieder anschalten.
+        //    Sonst bleibt sie aus (CTX???00-Baseimage-Normalfall).
+        if (wasOn)
+        {
+            progress.Report("  → Restore: PowerOn (VM war vor dem Update AN)");
+            await _vsphere.PowerOnAsync(vm.Id, ct);
+        }
+        else
+        {
+            progress.Report("  → bleibt aus (VM war vor dem Update AUS)");
+        }
+
+        return (snapshotName, snapshotId);
     }
 
     private static async Task<bool> WaitAsync(

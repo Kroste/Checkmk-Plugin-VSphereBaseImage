@@ -65,19 +65,20 @@ Tab erscheint nicht.
    Power-State-Restore → Snapshot → Citrix-Katalog). Der Endzustand jeder VM
    soll dem Zustand vor dem Batch entsprechen:
 
-   a. **Power-State-Restore** *(klar spezifiziert, wartet nur auf Umsetzung)*
-   — `BatchRunner` erfasst aktuell `current.IsPoweredOn` am Anfang, wirft den
-   Wert aber weg. Ende ist immer Guest-Shutdown. Zielverhalten: vor dem Update
-   `POWERED_ON` → nach Update wieder `POWERED_ON` (Shutdown entfällt), vor dem
-   Update `POWERED_OFF` → nach Update wieder `POWERED_OFF` (Verhalten wie
-   heute). Für die typischen CTX???00-Baseimages ist der Ausgangszustand
-   „aus" → „aus" bleibt Default-Fall.
+   a. ✅ **Power-State-Restore** *(v0.4.0)* — `BatchRunner` erfasst
+   `wasOn = current.IsPoweredOn` am Anfang und stellt den Zustand nach dem
+   Snapshot wieder her: VM vorher AN → wieder AN, VM vorher AUS → bleibt AUS.
+   Für CTX???00-Baseimages (typisch aus → aus) unverändert; für andere VMs
+   korrekt.
 
-   b. **vSphere-Snapshot nach Agent-Update** — nachdem der Agent aktualisiert
-   wurde und die VM wieder heruntergefahren ist, einen frischen Snapshot vom
-   Baseimage anlegen (`POST /api/vcenter/vm/{vm}/snapshots`). Optional: alte
-   Snapshots aufräumen (Retention-Policy: letzte N behalten). Der Snapshot ist
-   die Referenz, mit der Citrix den Maschinenkatalog ausrollt.
+   b. ✅ **vSphere-Snapshot nach Agent-Update** *(v0.4.0)* — nach dem
+   Shutdown legt `BatchRunner` einen Snapshot an
+   (`POST /api/vcenter/vm/{vm}/snapshots`, `memory=false`, Name-Konvention
+   `checkmk-update-YYYYMMDD-HHmmss`). Ergebnis (Snapshot-Name + -ID) landet
+   im `BatchStepResult`, damit der spätere Citrix-Katalog-Publish darauf
+   zugreifen kann. Snapshot-Fehler sind non-fatal (Update ist ja schon
+   drin). Snapshot-Retention (alte Snapshots aufräumen) ist noch nicht
+   drin — kommt bei Bedarf.
 
    c. **Citrix-CVAD-On-Prem-Machine-Catalog-Update** — nach dem Snapshot den
    DDC anweisen, das Master-Image des betroffenen Machine Catalogs auf den

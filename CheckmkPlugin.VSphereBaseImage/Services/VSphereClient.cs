@@ -148,6 +148,47 @@ public sealed class VSphereClient : IDisposable
     public Task GuestShutdownAsync(string vmId, CancellationToken ct = default)
         => PostWithAuthAsync($"api/vcenter/vm/{vmId}/guest/power?action=shutdown", ct);
 
+    /// <summary>
+    /// Legt einen Snapshot auf der ausgeschalteten VM an. <c>memory=false</c>
+    /// spart Zeit und Platz (Guest ist eh aus). vSphere-API v8-Response ist
+    /// die Snapshot-ID als JSON-String (in "…"), die wir zurueckgeben —
+    /// spaeter fuer den Citrix-Katalog-Publish nutzbar.
+    /// </summary>
+    public async Task<string?> CreateSnapshotAsync(
+        string vmId, string name, string description, CancellationToken ct = default)
+    {
+        await EnsureSessionAsync(ct);
+        var body = JsonSerializer.Serialize(new
+        {
+            name,
+            description,
+            memory = false,
+            quiesce = false
+        }, JsonOpts);
+
+        async Task<HttpResponseMessage> Send()
+        {
+            var req = new HttpRequestMessage(HttpMethod.Post, $"api/vcenter/vm/{vmId}/snapshots")
+            {
+                Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json")
+            };
+            return await _http.SendAsync(req, ct);
+        }
+
+        var resp = await Send();
+        if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            _sessionToken = null;
+            await EnsureSessionAsync(ct);
+            resp = await Send();
+        }
+        var respBody = await resp.Content.ReadAsStringAsync(ct);
+        if (!resp.IsSuccessStatusCode)
+            throw new VSphereApiException(
+                $"POST snapshots -> {(int)resp.StatusCode}: {respBody}", resp.StatusCode);
+        return respBody.Trim().Trim('"');
+    }
+
     private async Task<T?> TryGetAsync<T>(string path, CancellationToken ct) where T : class
     {
         try
