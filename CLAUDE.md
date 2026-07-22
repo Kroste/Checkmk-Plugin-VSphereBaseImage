@@ -80,6 +80,19 @@ Tab erscheint nicht.
   mit demselben Präfix auf N=3 zurück (Präfix + Anzahl als Konstanten in
   `BatchRunner.SnapshotPrefix`/`SnapshotRetentionCount`). Manuelle
   Snapshots ohne Präfix bleiben unberührt. Delete-Fehler sind non-fatal.
+- **QoL-Tastenkürzel** *(v0.9.0)*: F5 aktualisiert; Enter im Freitext-
+  Filter selektiert die erste gefilterte VM und übergibt den Fokus ans
+  Grid. Ctrl+F fokussiert weiterhin den Filter, Esc leert ihn.
+- **Log-Panel-Kontextmenü** *(v0.9.0)*: Rechtsklick bietet Log kopieren,
+  Log als Datei speichern (SaveFilePicker mit Default-Namen
+  `vsphere-batch-yyyyMMdd-HHmm.log`) und Log leeren.
+- **Batch-Bericht-Modal** *(v0.9.0, `BatchReportDialog`/-VM)*: nach
+  Batch-Ende (auch nach Abbruch) erscheint ein Zusammenfassungs-Dialog
+  mit Aggregat und einer VM-Ergebnis-Tabelle. „Bericht kopieren" legt
+  eine druckbare Textform in die Zwischenablage; „Log speichern…" ist
+  auch aus dem Modal erreichbar. Der Runner meldet Cancels inzwischen
+  als reguläre Result-Zeile statt Exception, damit der Report auch
+  Cancel-Fälle abbildet.
 
 ## 4 · Roadmap
 
