@@ -62,10 +62,23 @@ Tab erscheint nicht.
   (ab Cockpit v1.7.2) prüft und installiert automatisch.
 - **Kontextmenü am VM-Grid** *(v0.6.0)*: RDP öffnen (`mstsc /v:<vm-name>`),
   Ping-Fenster (`cmd /k ping -t`), VM-Name/VM-ID in die Zwischenablage.
-  Doppelklick auf eine Zeile öffnet direkt RDP — bei Windows-Baseimages der
-  Regelfall. Kein FQDN-Suffix, weil vSphere-VMs ihren Windows-Hostnamen als
-  VM-Namen tragen; wenn das im Fachbereich mal auseinanderfällt, kommt ein
-  Domain-Suffix als Plugin-Setting.
+  Ab v0.7.0 öffnet der Doppelklick das **VM-Detail-Fenster** (siehe unten)
+  statt direkt RDP; RDP bleibt im Kontextmenü und im Detail-Header.
+- **VM-Detail-Fenster** *(v0.7.0, `VmDetailWindow`/`VmDetailViewModel`)*
+  analog Cockpit-`HostDetailWindow`: Header mit VM-Metadaten + RDP/Ping/
+  Aktualisieren; Guest-Panel (Hostname, IP, Guest-OS, VMware-Tools-RunState —
+  nur wenn VM läuft); Snapshot-Liste mit Delete-Button pro Zeile. Das Fenster
+  öffnet on-demand einen eigenen `VSphereClient` und ist damit unabhängig
+  vom Batch-Client im VM.
+- **Batch-Abbruch** *(v0.7.0)*: während eines laufenden Batches erscheint
+  neben „Batch starten" ein rotes „Batch abbrechen". Löst die CTS aus,
+  Warteschritte (Tools-Ready, Ping, Power-Off) brechen sauber ab, die
+  aktuell laufende VM wird zu Ende geführt.
+- **Snapshot-Retention** *(v0.7.0)*: nach dem Anlegen eines neuen
+  `checkmk-update-*`-Snapshots schneidet der `BatchRunner` alte Snapshots
+  mit demselben Präfix auf N=3 zurück (Präfix + Anzahl als Konstanten in
+  `BatchRunner.SnapshotPrefix`/`SnapshotRetentionCount`). Manuelle
+  Snapshots ohne Präfix bleiben unberührt. Delete-Fehler sind non-fatal.
 
 ## 4 · Roadmap
 
@@ -85,8 +98,10 @@ Tab erscheint nicht.
    `checkmk-update-YYYYMMDD-HHmmss`). Ergebnis (Snapshot-Name + -ID) landet
    im `BatchStepResult`, damit der spätere Citrix-Katalog-Publish darauf
    zugreifen kann. Snapshot-Fehler sind non-fatal (Update ist ja schon
-   drin). Snapshot-Retention (alte Snapshots aufräumen) ist noch nicht
-   drin — kommt bei Bedarf.
+   drin). ✅ **Snapshot-Retention** *(v0.7.0)*: nach der Anlage
+   schneidet der Runner alte `checkmk-update-*`-Snapshots derselben VM
+   auf N=3 zurück (`BatchRunner.SnapshotRetentionCount`), manuelle
+   Snapshots ohne Präfix bleiben unangetastet.
 
    c. ✅ **Citrix-CVAD-On-Prem-Machine-Catalog-Update** *(v0.5.0)* — nach
    dem Snapshot hebt `CitrixClient.PublishMasterImageAsync` das Master-Image
@@ -106,9 +121,11 @@ Tab erscheint nicht.
    5 min, Tools-Poll 5 s hart im Code. In `BatchSettings` verschieben und
    im `BatchSettingsDialog` bearbeitbar machen.
 
-3. **GUI-Progress-Cancel** — der Batch läuft asynchron, ist aber nicht
-   abbrechbar. Cancel-Button im Log-Panel, der die interne
-   `CancellationToken` triggert.
+3. ✅ **GUI-Progress-Cancel** *(v0.7.0)* — „Batch abbrechen"-Button
+   im Batch-Panel triggert die interne CTS; der Runner unterbricht die
+   Warteschritte sauber, die aktuelle VM wird zu Ende geführt, weitere
+   VMs werden übersprungen. Externes `CancellationToken` wird via
+   `CreateLinkedTokenSource` mit eingekoppelt.
 
 4. **Parallele Batches** — heute streng sequenziell. Für sehr viele Baseimages
    könnte parallel N=3 helfen, aber der Ping/Reachability-Storm und die
