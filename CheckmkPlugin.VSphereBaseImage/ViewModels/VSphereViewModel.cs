@@ -149,7 +149,7 @@ public sealed partial class VSphereViewModel : ObservableObject
     /// Credentials (fuer Remote-PowerShell) und die Katalog-Zuordnung werden
     /// vom Aufrufer via <see cref="Views.CredentialDialog"/> und
     /// <see cref="Views.CatalogPickerDialog"/> geholt.</summary>
-    public async Task RunBatchAsync(
+    public async Task<IReadOnlyList<BatchStepResult>> RunBatchAsync(
         IReadOnlyList<VmCatalogAssignment> assignments,
         string adminUser, string adminPassword,
         CancellationToken ct = default)
@@ -157,7 +157,7 @@ public sealed partial class VSphereViewModel : ObservableObject
         if (assignments.Count == 0)
         {
             StatusMessage = "Keine VMs zugeordnet — Batch abgebrochen.";
-            return;
+            return Array.Empty<BatchStepResult>();
         }
 
         // Interne CTS mit dem externen Token koppeln, damit sowohl der
@@ -172,7 +172,7 @@ public sealed partial class VSphereViewModel : ObservableObject
         if (string.IsNullOrEmpty(vcPw))
         {
             StatusMessage = "vCenter-Passwort nicht verfuegbar.";
-            return;
+            return Array.Empty<BatchStepResult>();
         }
 
         var pluginCfg = _batchSettings.Load();
@@ -182,6 +182,7 @@ public sealed partial class VSphereViewModel : ObservableObject
         IsBusy = true;
         LogText = "";
         StatusMessage = $"Batch startet fuer {assignments.Count} VM(s).";
+        IReadOnlyList<BatchStepResult> results = Array.Empty<BatchStepResult>();
         try
         {
             using var vsphere = new VSphereClient(creds, vcPw);
@@ -214,7 +215,7 @@ public sealed partial class VSphereViewModel : ObservableObject
                     StatusMessage = line;
                 });
 
-                var results = await runner.RunAsync(assignments, options, progress, batchCt);
+                results = await runner.RunAsync(assignments, options, progress, batchCt);
                 var ok = results.Count(r => r.Success);
                 var published = results.Count(r => r.CatalogPublished is not null);
                 StatusMessage = $"Batch beendet: {ok}/{results.Count} erfolgreich, {published} Kataloge publiziert.";
@@ -236,6 +237,7 @@ public sealed partial class VSphereViewModel : ObservableObject
             _batchCts?.Dispose();
             _batchCts = null;
         }
+        return results;
     }
 
     [RelayCommand]

@@ -70,7 +70,15 @@ public sealed class BatchRunner
         var results = new List<BatchStepResult>();
         for (var i = 0; i < assignments.Count; i++)
         {
-            ct.ThrowIfCancellationRequested();
+            // Cancel-Check zwischen den VMs: statt Exception zu werfen brechen
+            // wir die Schleife ab und geben die bisher gesammelten Results
+            // zurueck. Damit kann der Aufrufer auch nach Cancel den Bericht
+            // fuer die schon erledigten VMs zeigen.
+            if (ct.IsCancellationRequested)
+            {
+                progress.Report("Batch abgebrochen — verbleibende VMs uebersprungen.");
+                break;
+            }
             var assign = assignments[i];
             var vm = assign.Vm;
             progress.Report($"[{i + 1}/{assignments.Count}] {vm.Name} — starte Ablauf");
@@ -106,8 +114,11 @@ public sealed class BatchRunner
             }
             catch (OperationCanceledException)
             {
-                progress.Report("Batch abgebrochen.");
-                throw;
+                // Cancel innerhalb einer VM: die aktuelle VM als "abgebrochen"
+                // markieren, verbleibende VMs skipt die naechste Iteration.
+                results.Add(new BatchStepResult(vm.Name, false, "Abgebrochen"));
+                progress.Report($"[{i + 1}/{assignments.Count}] {vm.Name} — abgebrochen.");
+                break;
             }
             catch (Exception ex)
             {

@@ -1,0 +1,51 @@
+<ui:ChromeWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="using:CheckmkPlugin.VSphereBaseImage.UI"
+        xmlns:vm="using:CheckmkPlugin.VSphereBaseImage.ViewModels"
+        xmlns:services="using:CheckmkPlugin.VSphereBaseImage.Services"
+        x:Class="CheckmkPlugin.VSphereBaseImage.Views.BatchReportDialog"
+        x:DataType="vm:BatchReportViewModel"
+        Width="760" Height="560"
+        Title="Batch-Bericht"
+        WindowStartupLocation="CenterOwner">
+  <Border BorderBrush="#3A3A3A" BorderThickness="1"
+          Background="{DynamicResource KrosteBackgroundBrush}">
+    <Grid RowDefinitions="40,Auto,*,Auto">
+
+      <ui:TitleBar Grid.Row="0" Title="Batch-Bericht" />
+
+      <!-- Kopf mit Zeitstempel + Kennzahlen -->
+      <Border Grid.Row="1" Background="#1B1F24" Padding="16,10" Margin="16,10,16,0"
+              CornerRadius="6">
+        <StackPanel Spacing="2">
+          <TextBlock Text="{Binding FinishedAt, StringFormat='Fertig um {0:HH:mm:ss} — {0:yyyy-MM-dd}'}"
+                     Foreground="#9AA0A6" FontSize="12" />
+          <TextBlock Text="{Binding HeadlineText}" FontSize="14" FontWeight="SemiBold" />
+        </StackPanel>
+      </Border>
+
+      <!-- Ergebnisliste -->
+      <DataGrid Grid.Row="2" Margin="16,10,16,10"
+                ItemsSource="{Binding Results}"
+                IsReadOnly="True" GridLinesVisibility="Horizontal"
+                CanUserResizeColumns="True" CanUserSortColumns="True">
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="Erfolg" Binding="{Binding Success}" Width="80" />
+          <DataGridTextColumn Header="VM" Binding="{Binding VmName}" Width="200" />
+          <DataGridTextColumn Header="Snapshot" Binding="{Binding SnapshotName}" Width="200" />
+          <DataGridTextColumn Header="Katalog" Binding="{Binding CatalogPublished}" Width="140" />
+          <DataGridTextColumn Header="Meldung" Binding="{Binding Message}" Width="*" />
+        </DataGrid.Columns>
+      </DataGrid>
+
+      <!-- Aktionsleiste -->
+      <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right"
+                  Margin="16" Spacing="8">
+        <Button Content="Bericht kopieren" Click="OnCopyReportClick" />
+        <Button Content="Log speichern…" Click="OnSaveLogClick" />
+        <Button Content="Schliessen" Click="OnCloseClick"
+                Background="#123E6B" IsDefault="True" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</ui:ChromeWindow>

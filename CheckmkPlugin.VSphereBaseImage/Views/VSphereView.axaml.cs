@@ -141,7 +141,11 @@ public partial class VSphereView : UserControl
             .ShowDialog<CredentialResult?>(owner);
         if (creds is null) return;
 
-        await vm.RunBatchAsync(assignments, creds.User, creds.Password);
+        var results = await vm.RunBatchAsync(assignments, creds.User, creds.Password);
+        if (results.Count == 0) return;
+
+        var reportVm = new BatchReportViewModel(results, vm.LogText);
+        await new BatchReportDialog(reportVm).ShowDialog(owner);
     }
 
     // --- Kontextmenue am VM-Grid ------------------------------------------
