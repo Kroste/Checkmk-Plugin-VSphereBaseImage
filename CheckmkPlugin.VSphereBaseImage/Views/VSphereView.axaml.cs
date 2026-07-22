@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using CheckmkPlugin.VSphereBaseImage.Models;
 using CheckmkPlugin.VSphereBaseImage.Services;
 using CheckmkPlugin.VSphereBaseImage.ViewModels;
 
@@ -87,11 +88,28 @@ public partial class VSphereView : UserControl
         if (DataContext is not VSphereViewModel vm) return;
         if (TopLevel.GetTopLevel(this) is not Window owner) return;
 
+        var visible = vm.VisibleVms.ToList();
+        if (visible.Count == 0) return;
+
+        // 1) Kataloge vom DDC holen (leere Liste falls DDC-Auth fehlt / nicht
+        //    erreichbar). Der User kann trotzdem batchen — dann eben ohne
+        //    Katalog-Publish. Das entkoppelt vSphere-Update von Citrix-Erreichbarkeit.
+        var catalogs = await vm.LoadCatalogsAsync();
+
+        // 2) Katalog-Picker: pro VM Vorbelegung via Praefix-Aehnlichkeit,
+        //    User kann manuell umstellen oder leer lassen.
+        var pickerVm = new CatalogPickerViewModel(visible, catalogs);
+        var assignments = await new CatalogPickerDialog(pickerVm)
+            .ShowDialog<IReadOnlyList<VmCatalogAssignment>?>(owner);
+        if (assignments is null) return;
+
+        // 3) Admin-Credentials fuer Remote-PowerShell (nicht persistiert,
+        //    nur im Prozess-Memory bis Batch fertig).
         var creds = await new CredentialDialog(
             "Admin-Anmeldung fuer Remote-PowerShell auf die Baseimage-VMs")
             .ShowDialog<CredentialResult?>(owner);
         if (creds is null) return;
 
-        await vm.RunBatchAsync(creds.User, creds.Password);
+        await vm.RunBatchAsync(assignments, creds.User, creds.Password);
     }
 }

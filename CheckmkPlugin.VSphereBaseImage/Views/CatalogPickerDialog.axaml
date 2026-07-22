@@ -1,0 +1,56 @@
+<ui:ChromeWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="using:CheckmkPlugin.VSphereBaseImage.UI"
+        xmlns:vm="using:CheckmkPlugin.VSphereBaseImage.ViewModels"
+        x:Class="CheckmkPlugin.VSphereBaseImage.Views.CatalogPickerDialog"
+        x:DataType="vm:CatalogPickerViewModel"
+        Width="720" Height="480"
+        Title="Katalog-Zuordnung fuer Batch"
+        WindowStartupLocation="CenterOwner">
+  <Border BorderBrush="#3A3A3A" BorderThickness="1"
+          Background="{DynamicResource KrosteBackgroundBrush}">
+    <Grid RowDefinitions="40,Auto,*,Auto">
+
+      <ui:TitleBar Grid.Row="0" Title="Katalog-Zuordnung fuer Batch" />
+
+      <TextBlock Grid.Row="1" Margin="16,12,16,6" Foreground="#AAAAAA" TextWrapping="Wrap"
+                 Text="{Binding StatusMessage}" />
+
+      <ScrollViewer Grid.Row="2" Margin="16,4,16,6">
+        <ItemsControl ItemsSource="{Binding Rows}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:VmCatalogRow">
+              <Border Background="#252526" CornerRadius="6" Padding="10,6" Margin="0,3">
+                <Grid ColumnDefinitions="200,*,Auto">
+                  <StackPanel Grid.Column="0" Spacing="1">
+                    <TextBlock Text="{Binding Vm.Name}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Vm.PowerState}"
+                               Foreground="#707070" FontSize="11" />
+                  </StackPanel>
+                  <ComboBox Grid.Column="1"
+                            ItemsSource="{Binding AllCatalogs}"
+                            SelectedItem="{Binding SelectedCatalog, Mode=TwoWay}"
+                            DisplayMemberBinding="{Binding Name}"
+                            PlaceholderText="(kein Katalog-Publish für diese VM)"
+                            HorizontalAlignment="Stretch" />
+                  <TextBlock Grid.Column="2" Text="Vorschlag"
+                             Foreground="#66BB6A" FontSize="11" Margin="8,0,0,0"
+                             VerticalAlignment="Center"
+                             IsVisible="{Binding SelectedCatalog, Converter={x:Static ObjectConverters.IsNotNull}}"
+                             ToolTip.Tip="Wurde anhand einer Praefix-Aehnlichkeit VM-Name/Katalog-Name vorbelegt — kannst du ueberschreiben." />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+
+      <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right"
+                  Margin="16" Spacing="8">
+        <Button Content="Abbrechen" Click="OnCancelClick" IsCancel="True" />
+        <Button Content="Batch starten" Click="OnStartClick"
+                Background="#123E6B" IsDefault="True" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</ui:ChromeWindow>

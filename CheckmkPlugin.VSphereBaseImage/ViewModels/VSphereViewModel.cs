@@ -16,6 +16,7 @@ public sealed partial class VSphereViewModel : ObservableObject
     private static readonly Logger Log = LogManager.GetCurrentClassLogger();
 
     private readonly ICredentialStore _credStore;
+    private readonly IDdcCredentialStore _ddcStore;
     private readonly IBatchSettingsStore _batchSettings;
     private readonly IAgentUpdater _updater;
 
@@ -48,11 +49,13 @@ public sealed partial class VSphereViewModel : ObservableObject
 
     public VSphereViewModel(
         ICredentialStore credStore,
+        IDdcCredentialStore ddcStore,
         VmFilterCollection filters,
         IBatchSettingsStore batchSettings,
         IAgentUpdater updater)
     {
         _credStore = credStore;
+        _ddcStore = ddcStore;
         Filters = filters;
         _batchSettings = batchSettings;
         _updater = updater;
@@ -113,15 +116,42 @@ public sealed partial class VSphereViewModel : ObservableObject
         OnPropertyChanged(nameof(BatchButtonLabel));
     }
 
-    /// <summary>Fuehrt das Batch-Update auf allen sichtbaren VMs aus. Admin-
-    /// Credentials (fuer Remote-PowerShell auf den Gast-VMs) werden als
-    /// Parameter uebergeben — Aufrufer holt sie vorher im Credential-Dialog.</summary>
-    public async Task RunBatchAsync(string adminUser, string adminPassword, CancellationToken ct = default)
+    /// <summary>Holt vor dem Batch die Machine-Catalog-Liste vom DDC. Rueckgabe
+    /// leere Liste wenn DDC-Auth fehlt oder API nicht erreichbar — dann laeuft
+    /// der Batch ohne Katalog-Publish weiter (nur Agent-Update + Snapshot).</summary>
+    public async Task<IReadOnlyList<CitrixMachineCatalog>> LoadCatalogsAsync(CancellationToken ct = default)
     {
-        var vms = VisibleVms.ToList();
-        if (vms.Count == 0)
+        var ddc = _ddcStore.Load();
+        var pw = _ddcStore.DecryptPassword(ddc);
+        if (string.IsNullOrWhiteSpace(ddc.UserName) || string.IsNullOrEmpty(pw))
         {
-            StatusMessage = "Keine VMs im aktiven Filter — Batch abgebrochen.";
+            Log.Debug("DDC-Anmeldung nicht konfiguriert — Katalog-Publish wird uebersprungen.");
+            return Array.Empty<CitrixMachineCatalog>();
+        }
+        try
+        {
+            using var citrix = new CitrixClient(ddc, pw);
+            return await citrix.ListMachineCatalogsAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn(ex, "Machine-Catalog-Liste konnte nicht geholt werden.");
+            return Array.Empty<CitrixMachineCatalog>();
+        }
+    }
+
+    /// <summary>Fuehrt das Batch-Update auf den zugeordneten VMs aus. Admin-
+    /// Credentials (fuer Remote-PowerShell) und die Katalog-Zuordnung werden
+    /// vom Aufrufer via <see cref="Views.CredentialDialog"/> und
+    /// <see cref="Views.CatalogPickerDialog"/> geholt.</summary>
+    public async Task RunBatchAsync(
+        IReadOnlyList<VmCatalogAssignment> assignments,
+        string adminUser, string adminPassword,
+        CancellationToken ct = default)
+    {
+        if (assignments.Count == 0)
+        {
+            StatusMessage = "Keine VMs zugeordnet — Batch abgebrochen.";
             return;
         }
 
@@ -134,33 +164,50 @@ public sealed partial class VSphereViewModel : ObservableObject
         }
 
         var pluginCfg = _batchSettings.Load();
+        var ddc = _ddcStore.Load();
+        var ddcPw = _ddcStore.DecryptPassword(ddc);
 
         IsBusy = true;
         LogText = "";
-        StatusMessage = $"Batch startet fuer {vms.Count} VM(s).";
+        StatusMessage = $"Batch startet fuer {assignments.Count} VM(s).";
         try
         {
-            using var client = new VSphereClient(creds, vcPw);
-            var runner = new BatchRunner(client, _updater);
+            using var vsphere = new VSphereClient(creds, vcPw);
 
-            var options = new BatchOptions(
-                AdminUser: adminUser,
-                AdminPassword: adminPassword,
-                AgentShare: pluginCfg.AgentShare,
-                ScriptTemplate: pluginCfg.AgentUpdateScript,
-                PowerOnTimeout: TimeSpan.FromMinutes(10),
-                ShutdownTimeout: TimeSpan.FromMinutes(5),
-                ToolsPollInterval: TimeSpan.FromSeconds(5));
-
-            var progress = new Progress<string>(line =>
+            // CitrixClient nur wenn Anmeldung konfiguriert UND mindestens eine
+            // VM einen Katalog zugeordnet hat. Sonst spart das die unnoetige
+            // Auth-Runde.
+            CitrixClient? citrix = null;
+            if (!string.IsNullOrWhiteSpace(ddc.UserName) && !string.IsNullOrEmpty(ddcPw)
+                && assignments.Any(a => a.Catalog is not null))
             {
-                LogText += line + Environment.NewLine;
-                StatusMessage = line;
-            });
+                citrix = new CitrixClient(ddc, ddcPw);
+            }
 
-            var results = await runner.RunAsync(vms, options, progress, ct);
-            var ok = results.Count(r => r.Success);
-            StatusMessage = $"Batch beendet: {ok}/{results.Count} erfolgreich.";
+            try
+            {
+                var runner = new BatchRunner(vsphere, _updater, citrix);
+                var options = new BatchOptions(
+                    AdminUser: adminUser,
+                    AdminPassword: adminPassword,
+                    AgentShare: pluginCfg.AgentShare,
+                    ScriptTemplate: pluginCfg.AgentUpdateScript,
+                    PowerOnTimeout: TimeSpan.FromMinutes(10),
+                    ShutdownTimeout: TimeSpan.FromMinutes(5),
+                    ToolsPollInterval: TimeSpan.FromSeconds(5));
+
+                var progress = new Progress<string>(line =>
+                {
+                    LogText += line + Environment.NewLine;
+                    StatusMessage = line;
+                });
+
+                var results = await runner.RunAsync(assignments, options, progress, ct);
+                var ok = results.Count(r => r.Success);
+                var published = results.Count(r => r.CatalogPublished is not null);
+                StatusMessage = $"Batch beendet: {ok}/{results.Count} erfolgreich, {published} Kataloge publiziert.";
+            }
+            finally { citrix?.Dispose(); }
         }
         catch (OperationCanceledException)
         {

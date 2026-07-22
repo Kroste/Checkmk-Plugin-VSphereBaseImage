@@ -80,24 +80,19 @@ Tab erscheint nicht.
    drin). Snapshot-Retention (alte Snapshots aufräumen) ist noch nicht
    drin — kommt bei Bedarf.
 
-   c. **Citrix-CVAD-On-Prem-Machine-Catalog-Update** — nach dem Snapshot den
-   DDC anweisen, das Master-Image des betroffenen Machine Catalogs auf den
-   neuen Snapshot zu heben. **Auth-Weg entschieden: Citrix-Orchestration-
-   REST-API** (`https://<ddc>/citrix/orchestration/api/…`, `POST /tokens` für
-   Bearer, dann `POST /{siteid}/MachineCatalogs/{catalog}/$UpdateProvisioningScheme`
-   mit `MasterImage: XdHyp:\\HostingUnits\\<unit>\\<vmname>.vm\\<snapshot>.snapshot`).
-   DDC-Anmeldedaten sind seit v0.3.0 im Settings-Dialog konfigurierbar
-   (`ddc-credentials.json`, DPAPI). **Noch zu klären vor Umsetzung**:
-
-   - **VM → Katalog-Zuordnung**: Namenskonvention (`CTX01100` → Katalog
-     `CTX01`, Regex-Capture in Batch-Settings), manuelle Auswahl je VM per
-     Dropdown aus `GET /MachineCatalogs`, oder am `VmFilter` mitspeichern.
-   - **Trigger-Zeitpunkt**: pro VM direkt nach Snapshot, oder Sammel-Publish
-     am Batch-Ende (einmal je Katalog).
-   - **Site-ID im DDC**: single-Site oder wählbar in den Settings?
-   - **Hosting-Unit-Name** für den XdHyp-Pfad (kommt vermutlich aus dem
-     bereits konfigurierten vSphere-Hosting im DDC, per `GET /Hypervisors`
-     abfragbar).
+   c. ✅ **Citrix-CVAD-On-Prem-Machine-Catalog-Update** *(v0.5.0)* — nach
+   dem Snapshot hebt `CitrixClient.PublishMasterImageAsync` das Master-Image
+   des zugeordneten Machine Catalogs auf den neuen Snapshot
+   (`POST Sites/{sid}/MachineCatalogs/{id}/$UpdateProvisioningScheme`).
+   Auth: `POST tokens` mit Basic (DDC-Domänen-User) → Bearer. Site-ID kommt
+   aus `GET Sites` (erste Site gewinnt, cached). Der neue Master-Image-Pfad
+   wird aus dem aktuellen Katalog-Pfad abgeleitet (`XdHyp:\HostingUnits\{unit}\{vm}.vm\{snap}.snapshot`,
+   nur VM- und Snapshot-Anteil ersetzt) — **HostingUnit muss nicht separat
+   konfiguriert werden**. VM→Katalog-Zuordnung: manueller `CatalogPickerDialog`
+   vor Batch-Start, pro VM ComboBox mit **automatischem Vorschlag** über
+   längste gemeinsame Namens-Präfix-Match (min. 3 Zeichen). Trigger-Zeitpunkt:
+   pro VM direkt nach Snapshot. Publish-Fehler sind non-fatal (Update +
+   Snapshot sind ja schon durch — Admin kann im DDC manuell nachziehen).
 
 2. **Timeouts konfigurierbar machen** — aktuell PowerOn 10 min, Shutdown
    5 min, Tools-Poll 5 s hart im Code. In `BatchSettings` verschieben und

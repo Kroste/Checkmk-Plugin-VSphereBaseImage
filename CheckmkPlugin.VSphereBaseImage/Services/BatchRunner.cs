@@ -11,7 +11,8 @@ public sealed record BatchStepResult(
     bool Success,
     string Message,
     string? SnapshotName = null,
-    string? SnapshotId = null);
+    string? SnapshotId = null,
+    string? CatalogPublished = null);
 
 public sealed record BatchOptions(
     string AdminUser,
@@ -42,31 +43,57 @@ public sealed class BatchRunner
 
     private readonly VSphereClient _vsphere;
     private readonly IAgentUpdater _updater;
+    private readonly CitrixClient? _citrix;
 
-    public BatchRunner(VSphereClient vsphere, IAgentUpdater updater)
+    public BatchRunner(VSphereClient vsphere, IAgentUpdater updater, CitrixClient? citrix = null)
     {
         _vsphere = vsphere;
         _updater = updater;
+        _citrix = citrix;
     }
 
     public async Task<IReadOnlyList<BatchStepResult>> RunAsync(
-        IReadOnlyList<VmInfo> vms,
+        IReadOnlyList<VmCatalogAssignment> assignments,
         BatchOptions options,
         IProgress<string> progress,
         CancellationToken ct = default)
     {
         var results = new List<BatchStepResult>();
-        for (var i = 0; i < vms.Count; i++)
+        for (var i = 0; i < assignments.Count; i++)
         {
             ct.ThrowIfCancellationRequested();
-            var vm = vms[i];
-            progress.Report($"[{i + 1}/{vms.Count}] {vm.Name} — starte Ablauf");
+            var assign = assignments[i];
+            var vm = assign.Vm;
+            progress.Report($"[{i + 1}/{assignments.Count}] {vm.Name} — starte Ablauf");
 
             try
             {
                 var (snapshotName, snapshotId) = await UpdateOneAsync(vm, options, progress, ct);
-                results.Add(new BatchStepResult(vm.Name, true, "OK", snapshotName, snapshotId));
-                progress.Report($"[{i + 1}/{vms.Count}] {vm.Name} — abgeschlossen ✔");
+
+                // Citrix-Katalog-Publish (Roadmap 1c): nur wenn eine Zuordnung gesetzt
+                // ist UND wir vorher einen Snapshot bekommen haben UND der CitrixClient
+                // verfuegbar ist. Publish-Fehler sind NON-FATAL — Update + Snapshot sind
+                // schon durch, der User kann im DDC manuell nachziehen.
+                string? publishedCatalog = null;
+                if (assign.Catalog is { } cat && snapshotName is not null && _citrix is not null)
+                {
+                    try
+                    {
+                        progress.Report($"  → Citrix-Katalog-Publish: {cat.Name}");
+                        await _citrix.PublishMasterImageAsync(cat, vm.Name, snapshotName, ct);
+                        publishedCatalog = cat.Name;
+                        progress.Report($"  → Publish OK: {cat.Name}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warn(ex, "Citrix-Publish fuer Katalog {Cat} (VM {Vm}) fehlgeschlagen.",
+                            cat.Name, vm.Name);
+                        progress.Report($"  → WARN: Publish {cat.Name} fehlgeschlagen: {ex.Message}");
+                    }
+                }
+
+                results.Add(new BatchStepResult(vm.Name, true, "OK", snapshotName, snapshotId, publishedCatalog));
+                progress.Report($"[{i + 1}/{assignments.Count}] {vm.Name} — abgeschlossen ✔");
             }
             catch (OperationCanceledException)
             {
@@ -77,7 +104,7 @@ public sealed class BatchRunner
             {
                 Log.Warn(ex, "Batch-Update {Vm} fehlgeschlagen.", vm.Name);
                 results.Add(new BatchStepResult(vm.Name, false, ex.Message));
-                progress.Report($"[{i + 1}/{vms.Count}] {vm.Name} — FEHLER: {ex.Message}");
+                progress.Report($"[{i + 1}/{assignments.Count}] {vm.Name} — FEHLER: {ex.Message}");
             }
         }
         return results;
