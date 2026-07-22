@@ -43,6 +43,7 @@ public partial class VSphereView : UserControl
 
     private void OnTabKeyDown(object? sender, KeyEventArgs e)
     {
+        // Ctrl+F fokussiert das Freitext-Feld — Muskelgedaechtnis vom Cockpit.
         if (e.Key == Key.F && e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
             var box = this.FindControl<TextBox>("FilterTextBox");
@@ -52,14 +53,39 @@ public partial class VSphereView : UserControl
                 box.SelectAll();
                 e.Handled = true;
             }
+            return;
+        }
+
+        // F5 loest den Refresh-Command aus — Standard-Shortcut fuer "neu laden",
+        // analog Cockpit-Status-Tab.
+        if (e.Key == Key.F5 && DataContext is VSphereViewModel vm)
+        {
+            if (vm.RefreshCommand.CanExecute(null)) vm.RefreshCommand.Execute(null);
+            e.Handled = true;
         }
     }
 
     private void OnFilterTextKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Escape && sender is TextBox tb)
+        if (sender is not TextBox tb) return;
+        if (e.Key == Key.Escape)
         {
             tb.Text = "";
+            e.Handled = true;
+            return;
+        }
+        // Enter im Filter springt in die Liste — dann kann man mit Cursor-Tasten
+        // durch die gefilterten VMs; Return in einer VM oeffnet Details.
+        if (e.Key == Key.Enter)
+        {
+            var grid = this.FindControl<DataGrid>("VmGrid");
+            if (grid is null) return;
+            if (grid.ItemsSource is not null && DataContext is VSphereViewModel vm
+                && vm.VisibleVms.Count > 0)
+            {
+                grid.SelectedIndex = 0;
+                grid.Focus();
+            }
             e.Handled = true;
         }
     }
