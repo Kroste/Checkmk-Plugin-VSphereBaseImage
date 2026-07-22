@@ -41,6 +41,15 @@ public sealed class BatchRunner
 {
     private static readonly Logger Log = LogManager.GetCurrentClassLogger();
 
+    /// <summary>Snapshot-Namenspraefix — nur Snapshots mit diesem Praefix werden
+    /// von der Retention angefasst; manuell angelegte Snapshots bleiben unberuehrt.</summary>
+    public const string SnapshotPrefix = "checkmk-update-";
+
+    /// <summary>Anzahl der zu behaltenden <c>checkmk-update-*</c>-Snapshots je VM.
+    /// 3 ist ein pragmatischer Kompromiss: aktueller Snapshot + zwei Rueckfall-
+    /// punkte, ohne den vSphere-Datastore unnoetig zu belegen.</summary>
+    public const int SnapshotRetentionCount = 3;
+
     private readonly VSphereClient _vsphere;
     private readonly IAgentUpdater _updater;
     private readonly CitrixClient? _citrix;
@@ -192,7 +201,7 @@ public sealed class BatchRunner
         //    Citrix-Katalog-Publish. Fehler NICHT fatal: der Agent ist ja
         //    schon drin. Ohne Snapshot fehlt nur die Referenz fuer den
         //    naechsten Roadmap-1c-Schritt.
-        var snapshotName = $"checkmk-update-{DateTime.Now:yyyyMMdd-HHmmss}";
+        var snapshotName = $"{SnapshotPrefix}{DateTime.Now:yyyyMMdd-HHmmss}";
         progress.Report($"  → Snapshot anlegen: {snapshotName}");
         string? snapshotId = null;
         try
@@ -202,6 +211,11 @@ public sealed class BatchRunner
                 "Angelegt vom Checkmk Cockpit (vSphere-Baseimage-Plugin) nach Agent-Update.",
                 ct);
             progress.Report($"  → Snapshot-ID: {snapshotId ?? "(unbekannt)"}");
+
+            // 8b) Retention: alte checkmk-update-*-Snapshots derselben VM auf
+            //     SnapshotRetentionCount zurueckschneiden. Fehler NICHT fatal
+            //     — nur Aufraeum-Kosmetik.
+            await ApplySnapshotRetentionAsync(vm, progress, ct);
         }
         catch (Exception ex)
         {
@@ -223,6 +237,49 @@ public sealed class BatchRunner
         }
 
         return (snapshotName, snapshotId);
+    }
+
+    /// <summary>Loescht alte <c>checkmk-update-*</c>-Snapshots der VM, so dass nur
+    /// noch <see cref="SnapshotRetentionCount"/> die neuesten uebrig bleiben.
+    /// Sortierung: <c>create_time</c> falls vorhanden, sonst Name (unsere
+    /// Konvention ist chronologisch). Manuelle Snapshots ohne unser Praefix
+    /// werden nicht angefasst.</summary>
+    private async Task ApplySnapshotRetentionAsync(
+        VmInfo vm, IProgress<string> progress, CancellationToken ct)
+    {
+        List<VmSnapshotInfo> ours;
+        try
+        {
+            var all = await _vsphere.ListSnapshotsAsync(vm.Id, ct);
+            ours = all.Where(s => s.Name.StartsWith(SnapshotPrefix, StringComparison.Ordinal))
+                      .OrderByDescending(s => s.CreateTime ?? DateTimeOffset.MinValue)
+                      .ThenByDescending(s => s.Name, StringComparer.Ordinal)
+                      .ToList();
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "Snapshot-Liste fuer Retention nicht abrufbar (VM {Vm}).", vm.Name);
+            return;
+        }
+
+        if (ours.Count <= SnapshotRetentionCount) return;
+
+        var toDelete = ours.Skip(SnapshotRetentionCount).ToList();
+        progress.Report($"  → Retention: {toDelete.Count} alte Snapshot(s) loeschen (behalte {SnapshotRetentionCount}).");
+        foreach (var snap in toDelete)
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                await _vsphere.DeleteSnapshotAsync(vm.Id, snap.Id, ct);
+                progress.Report($"     - geloescht: {snap.Name}");
+            }
+            catch (Exception ex)
+            {
+                Log.Warn(ex, "Snapshot-Delete fuer {Vm}/{Snap} fehlgeschlagen.", vm.Name, snap.Name);
+                progress.Report($"     - WARN: {snap.Name} nicht geloescht ({ex.Message})");
+            }
+        }
     }
 
     private static async Task<bool> WaitAsync(

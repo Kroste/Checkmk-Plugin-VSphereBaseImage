@@ -54,3 +54,24 @@ public sealed record VmToolsInfo
     [JsonIgnore]
     public bool IsRunning => RunState == "RUNNING";
 }
+
+/// <summary>Snapshot-Info aus <c>GET /api/vcenter/vm/{vm}/snapshots</c>. Die
+/// vCenter-API v8 liefert je Item mindestens <c>snapshot</c> (ID) und
+/// <c>name</c>; <c>create_time</c> ist ein optionales ISO-8601-Feld, das wir
+/// fuer die Retention-Sortierung nutzen (Fallback: Sortierung nach Name, weil
+/// unsere Namenskonvention <c>checkmk-update-YYYYMMDD-HHmmss</c> chronologisch
+/// ist).</summary>
+public sealed record VmSnapshotInfo
+{
+    [JsonPropertyName("snapshot")]
+    public string Id { get; init; } = "";
+
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = "";
+
+    [JsonPropertyName("description")]
+    public string? Description { get; init; }
+
+    [JsonPropertyName("create_time")]
+    public DateTimeOffset? CreateTime { get; init; }
+}

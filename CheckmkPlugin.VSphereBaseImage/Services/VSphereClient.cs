@@ -189,6 +189,62 @@ public sealed class VSphereClient : IDisposable
         return respBody.Trim().Trim('"');
     }
 
+    /// <summary>Listet die Snapshots einer VM (leere Liste bei 404/keine).
+    /// Response-Shape variiert leicht ueber vSphere-Versionen: manche liefern
+    /// direkt ein Array, andere ein <c>value</c>-Wrapper. Wir versuchen beides.
+    /// </summary>
+    public async Task<IReadOnlyList<VmSnapshotInfo>> ListSnapshotsAsync(
+        string vmId, CancellationToken ct = default)
+    {
+        await EnsureSessionAsync(ct);
+        var resp = await _http.GetAsync($"api/vcenter/vm/{vmId}/snapshots", ct);
+        if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            _sessionToken = null;
+            await EnsureSessionAsync(ct);
+            resp = await _http.GetAsync($"api/vcenter/vm/{vmId}/snapshots", ct);
+        }
+        if (!resp.IsSuccessStatusCode) return Array.Empty<VmSnapshotInfo>();
+        var body = await resp.Content.ReadAsStringAsync(ct);
+        try
+        {
+            // Neuere API-Versionen liefern direkt ein Array; alte Wrapper-Form
+            // "{ \"value\": [...] }" faellt hier durch den JSON-Startcheck.
+            var trimmed = body.TrimStart();
+            if (trimmed.StartsWith('['))
+                return JsonSerializer.Deserialize<List<VmSnapshotInfo>>(body, JsonOpts)
+                       ?? new List<VmSnapshotInfo>();
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.TryGetProperty("value", out var v) && v.ValueKind == JsonValueKind.Array)
+                return JsonSerializer.Deserialize<List<VmSnapshotInfo>>(v.GetRawText(), JsonOpts)
+                       ?? new List<VmSnapshotInfo>();
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "Snapshot-Liste konnte nicht geparst werden: {Body}", body);
+        }
+        return Array.Empty<VmSnapshotInfo>();
+    }
+
+    public async Task DeleteSnapshotAsync(string vmId, string snapshotId, CancellationToken ct = default)
+    {
+        await EnsureSessionAsync(ct);
+        var path = $"api/vcenter/vm/{vmId}/snapshots/{snapshotId}";
+        var resp = await _http.DeleteAsync(path, ct);
+        if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            _sessionToken = null;
+            await EnsureSessionAsync(ct);
+            resp = await _http.DeleteAsync(path, ct);
+        }
+        if (!resp.IsSuccessStatusCode)
+        {
+            var body = await resp.Content.ReadAsStringAsync(ct);
+            throw new VSphereApiException(
+                $"DELETE {path} -> {(int)resp.StatusCode}: {body}", resp.StatusCode);
+        }
+    }
+
     private async Task<T?> TryGetAsync<T>(string path, CancellationToken ct) where T : class
     {
         try
